@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Game Night AI</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" crossorigin="anonymous" href="https://fonts.gstatic.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;600;700&family=Be+Vietnam+Pro:wght@400;700;900&family=Bebas+Neue&family=Michroma&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  
+  <style>
+    body { background-color: #000; overflow-x: hidden; cursor: none; margin: 0; }
+    
+    .grain-overlay {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 9999; opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+    
+    .custom-cursor {
+      width: 8px; height: 8px; background: #00fd00; border-radius: 50%;
+      position: fixed; pointer-events: none; z-index: 10000;
+      box-shadow: 0 0 15px #00fd00; transition: transform 0.1s ease-out;
+    }
+
+    .glitch-text-s1 { text-shadow: 2px 0 #c1fffe, -2px 0 #00fd00; }
+    .glitch-text-s3 { text-shadow: 2px 0 #C9A84C, -2px 0 #75d1ff; }
+    .glitch-text-s4 { text-shadow: 0.05em 0 0 #c1fffe, -0.025em -0.05em 0 #00fd00, 0.025em 0.05em 0 #ff716c; }
+
+    .scanline-s1 {
+      width: 100%; height: 1px;
+      background: rgba(193, 255, 254, 0.05);
+      position: absolute; left: 0;
+    }
+    .scanline-full-s2 {
+      width: 100%; height: 100%; z-index: 50;
+      background: linear-gradient(to bottom, rgba(18,16,16,0) 50%, rgba(0,0,0,0.05) 50%),
+                  linear-gradient(90deg, rgba(255,0,0,0.01), rgba(0,255,0,0.005), rgba(0,0,255,0.01));
+      background-size: 100% 2px, 3px 100%;
+      pointer-events: none; position: fixed; top: 0; left: 0;
+    }
+    .scanline-full-s3 {
+      background: linear-gradient(to bottom, rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%),
+                  linear-gradient(90deg, rgba(201,168,76,0.06), rgba(201,168,76,0.02), rgba(0,0,255,0.04));
+      background-size: 100% 4px, 3px 100%;
+      pointer-events: none;
+    }
+    .scanline-s4 { width: 100%; height: 1px; background: rgba(193,255,254,0.1); position: absolute; }
+
+    .sonar-circle {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      border: 1px solid rgba(117,209,255,0.05);
+      border-radius: 50%; pointer-events: none;
+    }
+
+    .cinematic-glitch { position: relative; display: inline-block; }
+    .glitch-active, .game-row:hover .cinematic-glitch {
+      animation: glitch-skew 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite both;
+      text-shadow: 
+        2px 0 0 rgba(255,0,0,0.7), 
+        -2px 0 0 rgba(0,255,0,0.7),
+        0 2px 0 rgba(0,0,255,0.7);
+    }
+    .glitch-active::before, .glitch-active::after,
+    .game-row:hover .cinematic-glitch::before,
+    .game-row:hover .cinematic-glitch::after {
+      content: attr(data-text);
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      background: transparent;
+      color: inherit;
+    }
+    .glitch-active::before,
+    .game-row:hover .cinematic-glitch::before {
+      color: #ff003c;
+      left: 3px;
+      animation: glitch-anim-1 0.4s infinite linear alternate-reverse;
+      z-index: 1;
+    }
+    .glitch-active::after,
+    .game-row:hover .cinematic-glitch::after {
+      color: #00e6f6;
+      left: -3px;
+      animation: glitch-anim-2 0.3s infinite linear alternate-reverse;
+      z-index: 2;
+    }
+    @keyframes glitch-anim-1 {
+      0% { clip-path: inset(10% 0 60% 0); transform: translate(-2px, 1px) scale(1.01); }
+      20% { clip-path: inset(80% 0 5% 0); transform: translate(3px, -2px) scale(1.02); }
+      40% { clip-path: inset(30% 0 50% 0); transform: translate(1px, 2px) scale(1.0); }
+      60% { clip-path: inset(50% 0 30% 0); transform: translate(-3px, -1px) scale(1.03); }
+      80% { clip-path: inset(5% 0 80% 0); transform: translate(2px, 3px) scale(1.01); }
+      100% { clip-path: inset(60% 0 20% 0); transform: translate(-2px, -3px) scale(1.0); }
+    }
+    @keyframes glitch-anim-2 {
+      0% { clip-path: inset(20% 0 80% 0); transform: translate(2px, -1px) scale(1.01); }
+      20% { clip-path: inset(50% 0 10% 0); transform: translate(-3px, 2px) scale(1.0); }
+      40% { clip-path: inset(10% 0 90% 0); transform: translate(4px, 1px) scale(1.02); }
+      60% { clip-path: inset(90% 0 2% 0); transform: translate(-1px, -2px) scale(1.0); }
+      80% { clip-path: inset(40% 0 40% 0); transform: translate(2px, -3px) scale(1.03); }
+      100% { clip-path: inset(70% 0 20% 0); transform: translate(-3px, 2px) scale(1.01); }
+    }
+    @keyframes glitch-skew {
+      0% { transform: skew(0deg); }
+      20% { transform: skew(-5deg); }
+      40% { transform: skew(3deg); }
+      60% { transform: skew(-2deg); }
+      80% { transform: skew(1deg); }
+      100% { transform: skew(0deg); }
+    }
+
+    .underline-sweep { width: 0; height: 2px; background-color: #C9A84C; transition: width 0.3s ease-in-out; }
+    .game-row:hover .underline-sweep { width: 100%; }
+    .game-row:hover .locked-tag { opacity: 1; }
+    .game-row { cursor: pointer; }
+
+    .cursor-blink { animation: blink 1s step-end infinite; }
+    @keyframes blink { from, to { opacity: 1; } 50% { opacity: 0; } }
+
+    .animate-flash {
+       animation: flash 0.4s ease-in-out forwards;
+    }
+    @keyframes flash {
+       0% { background: #c1fffe; opacity: 0; }
+       50% { background: #ffffff; opacity: 0.8; }
+       100% { background: #00fd00; opacity: 0; }
+    }
+
+    /* ═══ NEW SCREEN STYLES (README2 SIGINT Theme) ═══ */
+    .sigint-scanlines {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.03) 50%, rgba(0,0,0,0) 50%);
+      background-size: 100% 2px;
+      z-index: 50; pointer-events: none;
+    }
+    .sigint-grain {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      opacity: 0.05; pointer-events: none; z-index: 51;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    .sigint-vignette {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.8) 100%);
+      z-index: 52; pointer-events: none;
+    }
+    .sigint-glitch { text-shadow: -2px 0 #FF003C, 2px 0 #00E5FF; }
+    .sigint-glitch-red { text-shadow: -2px 0 #FF003C, 1px 0 #FF003C; }
+    .sigint-ghost-border { border: 1px solid rgba(145,145,145,0.2); }
+    .sigint-cyan-glow {
+      box-shadow: 0 0 15px rgba(0,229,255,0.4), inset 0 0 5px rgba(0,229,255,0.2);
+      border-color: #00E5FF !important;
+    }
+    .michroma { font-family: "Michroma", sans-serif; }
+    .material-symbols-outlined { font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24; }
+
+    .sigint-scroll::-webkit-scrollbar { width: 4px; }
+    .sigint-scroll::-webkit-scrollbar-track { background: transparent; }
+    .sigint-scroll::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.3); }
+
+    .player-card-tapped {
+      background: rgba(0, 255, 0, 0.15) !important;
+      border-color: #00ff00 !important;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.3), inset 0 0 10px rgba(0, 255, 0, 0.1);
+    }
+  </style>
+
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "cyan-hero": "#c1fffe",
+            "green-hero": "#00fd00",
+            "gold-select": "#e6c364",
+            "blue-select": "#75d1ff",
+            "gold-play": "#C9A84C",
+            "blue-play": "#75d1ff",
+            "surface-container-lowest": "#000000",
+            "surface-container-low": "#1c1b1b",
+            "surface-container": "#201f1f",
+            "surface-container-high": "#2a2a2a",
+            "surface-container-highest": "#353534",
+            "surface": "#131313",
+            "on-surface": "#e5e2e1",
+            "on-background": "#ffffff",
+            "background": "#0e0e0e",
+            "outline-variant": "#4d4637",
+            "on-surface-variant": "#d0c5b2",
+            "on-primary": "#000000",
+            "error": "#ff716c",
+            "secondary": "#e6c364",
+            "secondary-fixed-dim": "#c9a84c"
+          },
+          fontFamily: {
+            "s1-headline": ["Space Grotesk"],
+            "s1-body": ["Inter"],
+            "s2-headline": ["Be Vietnam Pro"],
+            "s2-body": ["Space Grotesk"],
+            "michroma": ["Michroma"],
+            "s3-headline": ["Bebas Neue"],
+            "s3-body": ["Space Grotesk"],
+            "s4-headline": ["Space Grotesk"],
+            "s4-body": ["Inter"],
+            "headline": ["Michroma", "sans-serif"],
+            "body": ["Space Grotesk", "sans-serif"],
+            "label": ["Space Grotesk", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-background">
+  <div class="titlebar" style="
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 28px;
+    z-index: 99999;
+    -webkit-app-region: drag;
+    background: transparent;
+  "></div>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const GAMES = [
+      { id: 1, title: "WOULD YOU RATHER" },
+      { id: 2, title: "ROAST BATTLE" },
+      { id: 3, title: "TWO TRUTHS ONE LIE" },
+      { id: 4, title: "CHAOS STORY", rounds: 6 },
+      { id: 5, title: "PURITY SCORE" },
+      { id: 6, title: "NEVER HAVE I EVER" },
+      { id: 7, title: "PERSONALITY ROAST" },
+      { id: 8, title: "GUESS THE PERSON" },
+      { id: 9, title: "WHO IN YOUR FRIEND GROUP" },
+      { id: 10, title: "REALITY SHOW GENERATOR" }
+    ];
+
+    // Mode selection logic:
+    // Skip mode modal entirely → straight to playerSetup
+    const AI_ONLY_SKIP = [1, 5, 7, 8, 10];
+    // Show "PLAY WITH AI" button only
+    const AI_ONLY_SHOW = [9];
+    // Show both "PLAY WITH AI" and "PLAY WITH FRIENDS"
+    const BOTH_MODES = [2, 3, 4, 6];
+    // Games needing personality field in setup
+    const PERSONALITY_GAMES = [7, 10];
+    // Min players
+    const MIN_2_PLAYERS = [2, 3, 4, 6, 10];
+
+    function cleanText(str) {
+      return str
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/^Round\s*\d+\s*[-–—:]?\s*/i, '')
+        .replace(/\*\*Round\s*\d+\*\*\s*[-–—:]?\s*/gi, '')
+        .replace(/#{1,6}\s/g, '')
+        .trim();
+    }
+
+    async function streamOpenRouter(promptText, history, systemPrompt, dynPrompt, onChunk) {
+      const API_KEY = "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";
+      const msgs = [{ role: "system", content: systemPrompt }, ...history];
+      if (dynPrompt) msgs.push({ role: "system", content: dynPrompt });
+      msgs.push({ role: "user", content: promptText });
+
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "openai/gpt-oss-120b:free", messages: msgs, stream: true })
+      });
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data: ") && line !== "data: [DONE]") {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
+                const char = data.choices[0].delta.content;
+                fullText += char;
+                if (onChunk) onChunk(char, fullText);
+              }
+            } catch (e) {}
+          }
+        }
+      }
+      return fullText;
+    }
+
+    async function callAI(promptText, history, systemPrompt) {
+      return streamOpenRouter(promptText, history || [], systemPrompt, null, () => {});
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       ORIGINAL SCREEN: HERO (unchanged)
+    ═══════════════════════════════════════════════════════ */
+    function Hero({ onStart }) {
+       const [isGlitching, setIsGlitching] = useState(false);
+
+       const handleStartClick = () => {
+           if (isGlitching) return;
+           setIsGlitching(true);
+           setTimeout(() => {
+               setIsGlitching(false);
+               onStart();
+           }, 600);
+       };
+
+       useEffect(() => {
+           if (!isGlitching) return;
+           const overlay = document.createElement('div');
+           overlay.style.position = 'fixed';
+           overlay.style.top = '0';
+           overlay.style.left = '0';
+           overlay.style.width = '100vw';
+           overlay.style.height = '100vh';
+           overlay.style.zIndex = '9999';
+           overlay.style.pointerEvents = 'none';
+           document.body.appendChild(overlay);
+
+           const interval = setInterval(() => {
+               const colors = ['black', 'white', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF'];
+               overlay.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+               overlay.style.opacity = (Math.random() * 0.7 + 0.3).toString();
+
+               overlay.innerHTML = '';
+
+               const numStrips = Math.floor(Math.random() * 5) + 6;
+               for (let i = 0; i < numStrips; i++) {
+                   const strip = document.createElement('div');
+                   strip.style.position = 'absolute';
+                   strip.style.top = '0';
+                   strip.style.left = '0';
+                   strip.style.width = '100%';
+                   strip.style.height = '100%';
+                   strip.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                   strip.style.mixBlendMode = 'screen';
+                   
+                   const topOrig = Math.random() * 100;
+                   const top = Math.min(topOrig, 90);
+                   const bottom = Math.max(0, 100 - top - Math.max(5, Math.random() * 20));
+                   strip.style.clipPath = `inset(${top}% 0 ${bottom}% 0)`;
+                   strip.style.transform = `translateX(${Math.random() * 60 - 30}px)`;
+                   
+                   overlay.appendChild(strip);
+               }
+
+               const lines = Math.floor(Math.random() * 10);
+               for (let i = 0; i < lines; i++) {
+                   const line = document.createElement('div');
+                   line.style.position = 'absolute';
+                   line.style.left = '0';
+                   line.style.width = '100%';
+                   line.style.height = Math.random() > 0.5 ? '1px' : '2px';
+                   line.style.top = Math.random() * 100 + '%';
+                   line.style.backgroundColor = Math.random() > 0.5 ? 'white' : 'red';
+                   overlay.appendChild(line);
+               }
+
+               const text = document.createElement('div');
+               text.style.position = 'absolute';
+               text.style.top = '50%';
+               text.style.left = '50%';
+               text.style.transform = 'translate(-50%, -50%)';
+               text.style.fontFamily = 'monospace';
+               text.style.fontSize = '8vw';
+               text.style.lineHeight = '1.2';
+               text.style.color = '#00fd00';
+               text.style.fontWeight = 'bold';
+               text.style.textShadow = '0 0 20px #00fd00';
+               text.style.whiteSpace = 'pre-wrap';
+               text.style.textAlign = 'center';
+               text.innerText = Math.random() > 0.5 ? '01010110\nERROR\nSYSTEM BREACH' : 'ACCESS GRANTED\nOVERRIDE';
+               overlay.appendChild(text);
+           }, 30);
+
+           return () => {
+               clearInterval(interval);
+               if(overlay.parentNode) overlay.parentNode.removeChild(overlay);
+           };
+       }, [isGlitching]);
+
+       return (
+        <main className="relative h-screen w-full flex flex-col items-center justify-center bg-surface-container-lowest font-s1-body text-on-background overflow-hidden selection:bg-green-hero selection:text-surface">
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="scanline-s1 top-[20%]"></div>
+            <div className="scanline-s1 top-[45%] opacity-20"></div>
+            <div className="scanline-s1 top-[75%]"></div>
+            <div className="absolute top-24 left-24 w-4 h-4 border-t border-l border-cyan-hero/30"></div>
+            <div className="absolute top-24 right-40 w-4 h-4 border-t border-r border-cyan-hero/30"></div>
+            <div className="absolute bottom-24 left-24 w-4 h-4 border-b border-l border-cyan-hero/30"></div>
+            <div className="absolute bottom-24 right-40 w-4 h-4 border-b border-r border-cyan-hero/30"></div>
+          </div>
+
+          <div className="fixed top-[52px] left-6 z-50 mix-blend-difference">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-hero">Status: Connected//Null</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">Lat: 35.6762 / Long: 139.6503</p>
+          </div>
+          <div className="fixed bottom-6 left-6 z-50">
+            <div className="flex gap-4">
+              <span className="w-1 h-1 bg-green-hero rounded-full"></span>
+              <span className="w-1 h-1 bg-white/20 rounded-full"></span>
+              <span className="w-1 h-1 bg-white/20 rounded-full"></span>
+            </div>
+          </div>
+
+          <header className="fixed top-[28px] right-0 p-6 flex justify-end items-center w-full z-50 pointer-events-none">
+            <div className="flex items-center gap-8 pointer-events-auto">
+              <div className="font-mono text-sm tracking-tighter text-[#c1fffe]">NEURAL_VOID</div>
+              <div className="flex items-center gap-4">
+                <span className="font-s1-headline uppercase tracking-[0.2em] font-bold text-[#00fd00] text-xs">00:00:00</span>
+              </div>
+            </div>
+          </header>
+
+          <div className="relative z-10 text-center select-none px-12">
+            <h1 className="font-s1-headline font-bold text-[12vw] leading-[0.85] tracking-[-0.05em] uppercase italic glitch-text-s1 mix-blend-screen">
+              GAME<br/>NIGHT<br/>AI
+            </h1>
+            <div className="mt-8 flex justify-center gap-12">
+              <p className="font-mono text-[10px] text-white/30 tracking-[0.3em] uppercase">V.04.2-STABLE</p>
+              <p className="font-mono text-[10px] text-white/30 tracking-[0.3em] uppercase">CORE//NEURAL</p>
+              <p className="font-mono text-[10px] text-white/30 tracking-[0.3em] uppercase">LINK//READY</p>
+            </div>
+          </div>
+
+          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 group">
+            <button onClick={handleStartClick} className="relative px-12 py-4 overflow-hidden border border-cyan-hero/20 transition-colors">
+              <div className="absolute inset-0 bg-transparent group-hover:bg-cyan-hero transition-all duration-300"></div>
+              <div className="relative flex items-center gap-3 pointer-events-none">
+                <span className="font-mono text-green-hero group-hover:text-surface-container-lowest transition-colors">&gt;_</span>
+                <span className="font-mono text-sm tracking-[0.4em] uppercase text-on-background group-hover:text-surface-container-lowest transition-colors">START</span>
+              </div>
+            </button>
+            <div className="absolute -bottom-8 left-0 w-full text-center">
+              <span className="font-mono text-[8px] text-white/20 tracking-[0.2em] uppercase">EXECUTE INITIALIZATION SEQUENCE</span>
+            </div>
+          </div>
+
+          <div className="fixed inset-0 -z-10 opacity-20 pointer-events-none">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-cyan-hero/5 blur-[120px]"></div>
+          </div>
+        </main>
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       ORIGINAL SCREEN: GAME SELECT (original UI, updated routing)
+    ═══════════════════════════════════════════════════════ */
+    function GameSelect({ onSelectGame }) {
+      const [modalGameId, setModalGameId] = useState(null);
+      const [isTitleGlitching, setIsTitleGlitching] = useState(false);
+
+      const handleModalTitleHover = () => {
+          if (isTitleGlitching) return;
+          setIsTitleGlitching(true);
+          setTimeout(() => setIsTitleGlitching(false), 600);
+      };
+
+      const getSizeClass = (i) => {
+         if (i < 3) return "text-4xl";
+         if (i < 7) return "text-3xl";
+         return "text-2xl";
+      };
+
+      const handleGameClick = (gameId) => {
+        if (AI_ONLY_SKIP.includes(gameId)) {
+          onSelectGame(gameId, 'ai');
+          return;
+        }
+        setModalGameId(gameId);
+      };
+
+      return (
+        <main className="font-s2-body text-on-surface antialiased bg-surface min-h-screen relative overflow-x-hidden">
+          <div className="scanline-full-s2"></div>
+          <div className="sonar-circle w-[400px] h-[400px]"></div>
+          <div className="sonar-circle w-[800px] h-[800px]"></div>
+          <div className="sonar-circle w-[1200px] h-[1200px]"></div>
+
+          <nav className="bg-surface text-gold-select font-s2-headline tracking-tighter uppercase text-xs border-b border-outline-variant/20 flex justify-between items-center px-6 py-2 w-full fixed top-[28px] z-50">
+            <div className="flex items-center gap-6">
+              <span className="font-michroma text-lg tracking-[0.2em] text-gold-select">NEURAL_LINK</span>
+            </div>
+          </nav>
+
+          <div className="fixed top-[76px] left-24 text-[10px] font-mono text-blue-select opacity-30 z-30 pointer-events-none">
+            LAT: 40.7128° N<br/>LONG: 74.0060° W<br/>ALT: 42M
+          </div>
+          <div className="fixed top-[76px] right-6 text-[10px] font-mono text-blue-select opacity-30 z-30 pointer-events-none text-right">
+            SIG_STRENGTH: 98%<br/>BUFFER: 0.002MS<br/>ENCRYPTION: AES-256
+          </div>
+          <div className="fixed bottom-6 left-24 text-[10px] font-mono text-blue-select opacity-30 z-30 pointer-events-none">
+            THREAT_LEVEL: MINIMAL<br/>ACTIVE_NODES: 14
+          </div>
+
+          <div className="ml-24 pt-32 pb-48 px-12 min-h-screen flex flex-col justify-start gap-12 relative z-20">
+            {GAMES.map((game, i) => (
+              <div key={game.id} className="game-row group/row relative py-2 max-w-4xl" onClick={() => handleGameClick(game.id)}>
+                <div className="flex items-center gap-10">
+                  <span className="text-[12px] font-mono opacity-20 group-hover/row:opacity-100 text-blue-select transition-all">
+                     {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <h2 data-text={game.title} className={`cinematic-glitch font-michroma ${getSizeClass(i)} uppercase tracking-[0.15em] opacity-25 group-hover/row:opacity-100 transition-all duration-200`}>
+                     {game.title}
+                  </h2>
+                </div>
+                <div className="underline-sweep mt-3"></div>
+              </div>
+            ))}
+          </div>
+
+          <div className="fixed bottom-10 right-10 w-32 h-32 opacity-10 border border-blue-select pointer-events-none flex items-center justify-center z-10">
+            <div className="w-24 h-24 border border-blue-select/50 rounded-full"></div>
+            <div className="absolute w-full h-[1px] bg-blue-select/50"></div>
+            <div className="absolute h-full w-[1px] bg-blue-select/50"></div>
+          </div>
+
+          <footer className="fixed bottom-2 right-4 flex gap-4 pointer-events-none font-s2-body text-[8px] opacity-40 text-blue-select z-50">
+            <span className="uppercase">SYSTEM_OVERRIDE_ACTIVE</span>
+            <span>V.09B</span>
+            <span>COORD_SYNC</span>
+            <span className="text-gold-select">ENCRYPT</span>
+          </footer>
+
+          {/* Mode selection modal */}
+          {modalGameId && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-auto">
+               <div className="text-center w-full max-w-xl">
+                 <div onMouseEnter={handleModalTitleHover} className="relative inline-block mb-12 cursor-pointer">
+                   <h2 data-text={GAMES.find(g => g.id === modalGameId)?.title} className={`font-s1-headline font-bold text-5xl leading-[0.85] tracking-[-0.05em] uppercase italic text-[#c1fffe] mix-blend-screen transition-all ${isTitleGlitching ? 'glitch-active' : ''}`}>
+                     {GAMES.find(g => g.id === modalGameId)?.title}
+                   </h2>
+                 </div>
+                 <div className="flex flex-col gap-6">
+                   <p className="font-mono text-blue-select opacity-50 tracking-[0.3em] uppercase text-xs mb-4">SELECT UPLINK MODE</p>
+                   {AI_ONLY_SHOW.includes(modalGameId) && (
+                     <button onClick={() => { setModalGameId(null); onSelectGame(modalGameId, 'ai'); }} className="bg-transparent border border-gold-select text-gold-select py-4 font-michroma uppercase tracking-widest hover:bg-gold-select hover:text-surface-container-lowest transition-all">PLAY WITH AI</button>
+                   )}
+                   {BOTH_MODES.includes(modalGameId) && (
+                     <>
+                       <button onClick={() => { setModalGameId(null); onSelectGame(modalGameId, 'ai'); }} className="bg-transparent border border-gold-select text-gold-select py-4 font-michroma uppercase tracking-widest hover:bg-gold-select hover:text-surface-container-lowest transition-all">PLAY WITH AI</button>
+                       <button onClick={() => { setModalGameId(null); onSelectGame(modalGameId, 'friends'); }} className="bg-transparent border border-blue-select text-blue-select py-4 font-michroma uppercase tracking-widest hover:bg-blue-select hover:text-surface-container-lowest transition-all">PLAY WITH FRIENDS</button>
+                     </>
+                   )}
+                 </div>
+                 <button className="mt-8 text-xs font-mono text-on-surface/50 underline px-4 py-2" onClick={() => setModalGameId(null)}>CANCEL</button>
+               </div>
+            </div>
+          )}
+        </main>
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       ORIGINAL SCREEN: GAMEPLAY (unchanged, for fallback)
+    ═══════════════════════════════════════════════════════ */
+    function Gameplay({ gameId, playerName, history, setHistory, roundNumber, setRound, gameConfig, onFinish, onLobby, onPlayAgain }) {
+      const [input, setInput] = useState("");
+      const [isStreaming, setIsStreaming] = useState(history.length === 0);
+      const [displayedMessage, setDisplayedMessage] = useState(history.length === 0 ? "INITIALIZING SECURE CHANNEL..." : "");
+      const [showExitConfirm, setShowExitConfirm] = useState(false);
+      const [inputPlaceholder, setInputPlaceholder] = useState("TYPE YOUR RESPONSE...");
+
+      const targetTextRef = useRef("");
+      const isTypingRef = useRef(false);
+
+      const getDynamicPrompt = (round, maxRounds) => {
+         return `CRITICAL INSTRUCTION: You are on round ${round} of ${maxRounds} ONLY.
+Generate content for THIS round ONLY.
+Do NOT generate content for any future rounds.
+Stop completely after finishing round ${round} content.
+Wait for the player's response.`;
+      };
+
+      const typeText = () => {
+         setDisplayedMessage(prev => {
+             if (prev.length < targetTextRef.current.length) {
+                 setTimeout(typeText, 15);
+                 return targetTextRef.current.substring(0, prev.length + 1);
+             } else {
+                 isTypingRef.current = false;
+                 return prev;
+             }
+         });
+      };
+
+      const handleChunk = (chunk, fullText) => {
+         const cleaned = cleanText(fullText);
+         targetTextRef.current = cleaned;
+         if (!isTypingRef.current) {
+            isTypingRef.current = true;
+            typeText();
+         }
+      };
+
+      useEffect(() => {
+         let active = true;
+         const init = async () => {
+            setIsStreaming(true);
+            setDisplayedMessage("");
+            const rounds = gameConfig?.rounds || 5;
+            const dynPrompt = getDynamicPrompt(roundNumber, rounds);
+            const res = await streamOpenRouter(`My name is ${playerName}. Start the game now.`, [], gameConfig?.systemPrompt || "You are a game host.", dynPrompt, handleChunk);
+            if(active) {
+               setHistory([{role: "assistant", content: cleanText(res)}]);
+               setIsStreaming(false);
+            }
+         };
+         if (history.length === 0) init();
+         return () => active = false;
+      }, []);
+
+      const handleSubmit = async (e) => {
+         if (e.key === 'Enter' && input.trim() && !isStreaming) {
+            const userMsg = input.trim();
+            setInput("");
+            setIsStreaming(true);
+            setDisplayedMessage("");
+            
+            const currentHist = [...history, {role: "user", content: userMsg}];
+            const rounds = gameConfig?.rounds || 5;
+            const nextRound = roundNumber + 1;
+            
+            if (nextRound > rounds) {
+               setDisplayedMessage("CALCULATING VERDICT...");
+               const finalPrompt = "The game is over. Give the final verdict and score as requested in the system prompt.";
+               const finalRes = await streamOpenRouter(finalPrompt, currentHist, gameConfig?.systemPrompt || "", null, () => {});
+               
+               const scoreMatch = finalRes.match(/(\d{1,3})\s*(?:\/\s*100|%|out of 100)/i);
+               const scoreStr = scoreMatch ? String(parseInt(scoreMatch[1])) : "50";
+               const verdictMatch = finalRes.match(/verdict[:\s]+([A-Z\s\-]{3,30})/i);
+               const verdict = verdictMatch ? verdictMatch[1].trim().toUpperCase() : 'SYSTEM OVERRIDE';
+               const summary = cleanText(finalRes);
+
+               setTimeout(() => onFinish(verdict, scoreStr, summary), 2000);
+            } else {
+               setRound(nextRound);
+               const dynPrompt = getDynamicPrompt(nextRound, rounds);
+               const aiResponse = await streamOpenRouter(userMsg, history, gameConfig?.systemPrompt || "", dynPrompt, handleChunk);
+               currentHist.push({role: "assistant", content: cleanText(aiResponse)});
+               setHistory(currentHist);
+               setIsStreaming(false);
+            }
+         }
+      };
+
+      const [clock, setClock] = useState("00:00:00");
+      useEffect(() => {
+         const timer = setInterval(() => {
+            const now = new Date();
+            setClock(String(now.getHours()).padStart(2,'0') + ':' + 
+                     String(now.getMinutes()).padStart(2,'0') + ':' + 
+                     String(now.getSeconds()).padStart(2,'0'));
+         }, 1000);
+         return () => clearInterval(timer);
+      }, []);
+
+      const rounds = gameConfig?.rounds || 5;
+      const deceptionIndex = Math.min(100, Math.floor((roundNumber / rounds) * 100));
+
+      return (
+        <main className="bg-surface-container-lowest text-on-surface font-s3-body overflow-hidden min-h-screen">
+          <div className="fixed inset-0 z-50 scanline-full-s3 opacity-20 pointer-events-none"></div>
+
+          {showExitConfirm && (
+             <div className="fixed inset-0 bg-black/90 z-[999] flex flex-col items-center justify-center pointer-events-auto">
+                <div className="font-michroma text-error text-2xl mb-8 uppercase tracking-widest animate-pulse">ABORT MISSION?</div>
+                <div className="flex gap-12 font-mono text-xl">
+                   <button onClick={() => { setShowExitConfirm(false); onLobby(); }} className="text-white/50 hover:text-error transition-colors">[ YES — EXIT ]</button>
+                   <button onClick={() => setShowExitConfirm(false)} className="text-white/50 hover:text-[#00fd00] transition-colors">[ NO — CONTINUE ]</button>
+                </div>
+             </div>
+          )}
+          
+          {!isStreaming && !displayedMessage.includes("INITIALIZING") && (
+            <div className="fixed top-[52px] left-6 z-[60] pointer-events-auto">
+              <button 
+                onClick={() => setShowExitConfirm(true)}
+                className="font-mono text-[10px] text-[#FF5F56] border border-[#FF5F56]/30 px-3 py-1 hover:bg-[#FF5F56]/10 transition-colors uppercase tracking-widest"
+              >
+                [ EXIT_GAME ]
+              </button>
+            </div>
+          )}
+
+          <header className="fixed top-[28px] left-0 w-full z-40 bg-[#131313] border-b border-outline-variant/20 flex justify-center items-center px-6 py-2">
+            <div className="font-s3-headline text-xl tracking-[0.2em] text-gold-play">NEURAL_LINK</div>
+          </header>
+
+          <nav className="fixed right-0 top-[28px] h-full w-16 bg-[#0e0e0e] border-l border-outline-variant/20 flex flex-col justify-center items-center gap-12 z-40 pointer-events-auto">
+             <div onClick={onLobby} className="group flex flex-col items-center gap-2 cursor-pointer text-blue-play opacity-50 hover:opacity-100 hover:text-blue-play transition-all">
+                <span className="material-symbols-outlined text-xl">terminal</span>
+                <span className="font-s3-body text-[8px] uppercase tracking-widest">LOBBY</span>
+             </div>
+             <div onClick={onPlayAgain} className="group flex flex-col items-center gap-2 cursor-pointer text-blue-play opacity-50 hover:opacity-100 hover:text-[#00fd00] transition-all">
+                <span className="material-symbols-outlined text-xl">replay</span>
+                <span className="font-s3-body text-[8px] uppercase tracking-widest text-center leading-tight">PLAY<br/>AGAIN</span>
+             </div>
+          </nav>
+
+          <div className="ml-0 mr-16 pt-[60px] pb-6 h-screen flex flex-col relative overflow-hidden">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
+              <div className="w-[600px] h-[600px] border border-blue-play rounded-full animate-pulse"></div>
+              <div className="absolute w-[400px] h-[400px] border border-gold-play/20 rounded-full"></div>
+              <div className="absolute w-full h-px bg-gold-play/10"></div>
+              <div className="absolute w-px h-full bg-gold-play/10"></div>
+            </div>
+
+            <div className="flex-1 grid grid-cols-12 gap-0 relative z-10 h-full overflow-hidden">
+              <div className="col-span-2 border-r border-outline-variant/10 p-4 xl:p-8 flex flex-col justify-center gap-12 h-full">
+                <div className="space-y-2">
+                  <div className="font-s3-body text-[10px] text-blue-play uppercase tracking-[0.3em]">Live_Telemetry</div>
+                  <div className="flex items-end gap-2">
+                    <span className="font-s3-headline text-4xl text-gold-play">{142 + roundNumber}</span>
+                    <span className="font-s2-body text-xs text-on-surface-variant mb-1">BPM</span>
+                  </div>
+                  <div className="w-full h-1 bg-surface-container overflow-hidden">
+                    <div className="h-full bg-gold-play w-3/4"></div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="font-s3-body text-[10px] text-blue-play uppercase tracking-[0.3em]">Signal_Noise</div>
+                  <div className="flex items-end gap-2">
+                    <span className="font-s3-headline text-4xl text-on-surface">0.024</span>
+                    <span className="font-s2-body text-xs text-on-surface-variant mb-1">MS</span>
+                  </div>
+                  <div className="flex gap-0.5 h-4 items-end">
+                    <div className="w-1 h-1/2 bg-gold-play"></div>
+                    <div className="w-1 h-3/4 bg-gold-play"></div>
+                    <div className="w-1 h-full bg-gold-play"></div>
+                    <div className="w-1 h-1/3 bg-gold-play"></div>
+                    <div className="w-1 h-2/3 bg-gold-play"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-span-8 flex flex-col items-center justify-between px-12 text-center h-full pt-8 pb-8 relative">
+                <div className="flex flex-col items-center w-full">
+                  <div className="mb-2">
+                    <span className="font-s3-body text-[10px] text-gold-play tracking-[0.5em] uppercase">Target_Acquired</span>
+                  </div>
+                  <h1 className="font-s3-headline mb-4 glitch-text-s3 tracking-tighter text-on-surface uppercase" style={{ fontSize: "clamp(2rem, 5vw, 5rem)", lineHeight: 1 }}>{gameConfig?.title || 'GAME'}</h1>
+                  <div className="mb-4 font-mono text-xs text-blue-play/50 uppercase tracking-widest">
+                     ROUND {roundNumber} / {rounds} 
+                  </div>
+                </div>
+
+                <div className="flex-1 flex w-full justify-center items-center overflow-y-auto mb-8 min-h-[120px]">
+                  <p className="font-s2-body text-lg md:text-xl lg:text-2xl leading-relaxed text-on-surface w-full max-w-[65%] text-center">
+                    {displayedMessage}
+                  </p>
+                </div>
+
+                { !isStreaming && (
+                  <div className="w-full max-w-xl relative mx-auto shrink-0 mt-auto">
+                    <div className="absolute -left-4 top-1/2 -translate-y-1/2 text-gold-play font-s3-headline text-xl">[</div>
+                    <div className="absolute -right-4 top-1/2 -translate-y-1/2 text-gold-play font-s3-headline text-xl">]</div>
+                    <div className="flex items-center gap-3 bg-surface-container-low px-6 py-4 border-b border-outline-variant/30 text-left">
+                      <span className="font-s3-body text-gold-play text-sm tracking-widest">&gt;&gt;&gt;</span>
+                      <input 
+                        autoFocus 
+                        className="bg-transparent border-none focus:ring-0 text-on-surface font-s2-body tracking-widest w-full placeholder:opacity-20 outline-none text-left" 
+                        placeholder={inputPlaceholder} 
+                        type="text"
+                        value={input}
+                        onChange={e => setInput(e.target.value)}
+                        onKeyDown={handleSubmit}
+                      />
+                      <div className="w-3 h-6 bg-gold-play cursor-blink flex-shrink-0"></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="col-span-2 border-l border-outline-variant/10 p-4 xl:p-8 flex flex-col justify-center gap-12 text-right h-full">
+                <div className="space-y-2">
+                  <div className="font-s3-body text-[10px] text-blue-play uppercase tracking-[0.3em]">Deception_Index</div>
+                  <div className="flex items-end justify-end gap-2">
+                    <span className="font-s3-headline text-4xl text-gold-play">{deceptionIndex}%</span>
+                  </div>
+                  <div className="w-full h-1 bg-surface-container overflow-hidden">
+                    <div className="h-full bg-gold-play transition-all duration-500 float-right" style={{width: `${deceptionIndex}%`}}></div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="font-s3-body text-[10px] text-blue-play uppercase tracking-[0.3em]">Local_Time</div>
+                  <div className="font-s3-headline text-2xl text-on-surface">{clock}</div>
+                </div>
+                <div className="pt-8 flex flex-col items-end gap-4">
+                  <div className="text-[10px] font-s3-body opacity-40">ENCRYPTION: AES-256</div>
+                  <div className="text-[10px] font-s3-body opacity-40">UPLINK: ACTIVE</div>
+                  <div className="flex gap-2">
+                    <div className="w-2 h-2 bg-gold-play"></div>
+                    <div className="w-2 h-2 bg-gold-play/20"></div>
+                    <div className="w-2 h-2 bg-gold-play/20"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <footer className="fixed bottom-2 right-4 flex gap-4 pointer-events-none z-50">
+              <span className="font-s3-body text-[8px] opacity-40 text-blue-play uppercase tracking-widest animate-pulse">SYSTEM_OVERRIDE_ACTIVE</span>
+              <span className="font-s3-body text-[8px] opacity-40 text-blue-play">V.09B</span>
+            </footer>
+          </div>
+        </main>
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       ORIGINAL SCREEN: RESULTS (unchanged)
+    ═══════════════════════════════════════════════════════ */
+    function Results({ verdictData, onLobby, onPlayAgain }) {
+      return (
+        <main className="text-on-background font-s4-body bg-[#000000] relative h-screen w-full flex items-center justify-center overflow-hidden">
+          <div className="fixed top-[52px] left-6 font-mono text-[10px] tracking-widest text-[#c1fffe]/40 z-50">
+            LAT: 35.6762 N<br/>LNG: 139.6503 E
+          </div>
+          <div className="fixed bottom-6 left-6 font-mono text-[10px] tracking-widest text-[#c1fffe]/40 z-50">
+            SYS_STATUS: ANALYZED<br/>THREAT_LEVEL: SEVERE
+          </div>
+
+          <nav className="fixed right-0 top-0 h-full w-16 bg-[#0e0e0e]/40 backdrop-blur-xl border-l border-white/5 flex flex-col justify-center items-center gap-12 z-[60] pointer-events-auto">
+             <div onClick={onLobby} className="group flex flex-col items-center gap-2 cursor-pointer text-[#c1fffe] opacity-50 hover:opacity-100 transition-all">
+                <span className="material-symbols-outlined text-xl">terminal</span>
+                <span className="font-s3-body text-[8px] uppercase tracking-widest">LOBBY</span>
+             </div>
+             <div onClick={onPlayAgain} className="group flex flex-col items-center gap-2 cursor-pointer text-[#c1fffe] opacity-50 hover:opacity-100 hover:text-[#00fd00] transition-all">
+                <span className="material-symbols-outlined text-xl">replay</span>
+                <span className="font-s3-body text-[8px] uppercase tracking-widest text-center leading-tight">PLAY<br/>AGAIN</span>
+             </div>
+          </nav>
+
+          <div className="absolute top-[15%] left-[10%] w-8 h-[1px] bg-[#c1fffe]/30"></div>
+          <div className="absolute top-[15%] left-[10%] w-[1px] h-8 bg-[#c1fffe]/30"></div>
+          <div className="absolute bottom-[15%] right-[20%] w-8 h-[1px] bg-[#00fd00]/30"></div>
+          <div className="absolute bottom-[15%] right-[20%] w-[1px] h-8 bg-[#00fd00]/30"></div>
+
+          <div className="absolute inset-0 z-0 opacity-10 pointer-events-none flex items-center justify-center">
+            <div className="w-[600px] h-[600px] border border-[#00fd00]/30 rounded-full"></div>
+            <div className="absolute w-[400px] h-[400px] border border-[#c1fffe]/20 rounded-full"></div>
+            <div className="absolute w-full h-px bg-[#00fd00]/10"></div>
+            <div className="absolute w-px h-full bg-[#00fd00]/10"></div>
+          </div>
+
+          <div className="relative z-10 w-full max-w-[90vw] px-12 flex flex-col items-start gap-0">
+            <div className="flex flex-col gap-2 mb-4">
+              <div className="flex items-center gap-4">
+                <span className="font-mono text-[#00fd00] text-xs tracking-[0.4em] uppercase">SUBJECT_04 // {verdictData.playerName || "PLAYER_ONE"}</span>
+                <div className="h-[1px] w-24 bg-[#00fd00]/40"></div>
+              </div>
+              <div className="font-mono text-[#c1fffe]/60 text-[10px] tracking-widest uppercase">GAME: {verdictData.gameName}</div>
+            </div>
+
+            <h1 className="font-s4-headline font-bold text-[10vw] leading-[0.85] tracking-tighter uppercase glitch-text-s4 text-white">
+              {(verdictData.verdict || '').split(' ').map((word, i, arr) => (
+                 <React.Fragment key={i}>
+                    {i === arr.length - 1 ? <span className="text-[#c1fffe] italic">{word}</span> : word}
+                    {i < arr.length - 1 && <br/>}
+                 </React.Fragment>
+              ))}
+            </h1>
+
+            <div className="mt-12 w-full grid grid-cols-12 items-end">
+              <div className="col-span-12 md:col-span-6 flex flex-col gap-6">
+                <div className="flex flex-col">
+                  <span className="font-mono text-[10px] text-[#c1fffe]/40 tracking-[0.2em]">SCORE_AGGREGATE</span>
+                  <span className="font-s4-headline font-bold text-6xl text-white tracking-tighter">{verdictData.score}<span className="text-[#00fd00] text-2xl">%</span></span>
+                </div>
+                <p className="font-s4-body text-on-surface-variant text-sm leading-relaxed max-w-lg">
+                  {verdictData.summary}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="scanline-s4 top-[20%] opacity-20"></div>
+          <div className="scanline-s4 top-[80%] opacity-10"></div>
+
+          <div className="fixed bottom-12 right-24 pointer-events-none">
+            <div className="font-mono text-[10px] text-white/10 flex flex-col items-end">
+              <span>ENCRYPTION: AES-256</span>
+              <span className="text-[#00fd00]/40">VERIFIED_BY_AI</span>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       SHARED: SIGINT Header + Overlays for new screens
+    ═══════════════════════════════════════════════════════ */
+    function SigintHeader({ onExit }) {
+      return (
+        <header className="fixed top-[28px] w-full border-b border-white/20 bg-black/90 z-[60] flex justify-between items-center px-6 py-3">
+          <div className="text-lg font-bold tracking-tighter text-white sigint-glitch michroma">SIGINT_TERMINAL_V1.0</div>
+          {onExit && <button onClick={onExit} className="michroma text-[10px] text-[#FF003C] border border-[#FF003C]/30 px-3 py-1 hover:bg-[#FF003C]/10 transition-colors uppercase tracking-widest">EXIT</button>}
+        </header>
+      );
+    }
+    function SigintOverlays() {
+      return (<>
+        <div className="sigint-scanlines"></div><div className="sigint-grain"></div><div className="sigint-vignette"></div>
+        <div className="fixed top-[34px] left-6 w-8 h-8 border-t-2 border-l-2 border-white/30 z-[55] pointer-events-none"></div>
+        <div className="fixed top-[34px] right-6 w-8 h-8 border-t-2 border-r-2 border-white/30 z-[55] pointer-events-none"></div>
+        <div className="fixed bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-white/30 z-[55] pointer-events-none"></div>
+        <div className="fixed bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-white/30 z-[55] pointer-events-none"></div>
+      </>);
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       NEW SCREEN: PLAYER SETUP
+    ═══════════════════════════════════════════════════════ */
+    function PlayerSetup({ gameId, gameMode, onStart, onBack }) {
+      const [players, setPlayers] = useState([]);
+      const [nameInput, setNameInput] = useState('');
+      const [personalityInput, setPersonalityInput] = useState('');
+      const [setupPhase, setSetupPhase] = useState('players');
+      const [selectedTheme, setSelectedTheme] = useState(null);
+      const [customEpisodes, setCustomEpisodes] = useState('');
+      const gameConfig = GAMES.find(g => g.id === gameId);
+      const showPersonality = PERSONALITY_GAMES.includes(gameId);
+      const minPlayers = MIN_2_PLAYERS.includes(gameId) ? 2 : 1;
+
+      const addPlayer = () => {
+        if (!nameInput.trim()) return;
+        setPlayers(prev => [...prev, { name: nameInput.trim().toUpperCase(), personality: personalityInput.trim() || '', score: 0, status: 'ACTIVE' }]);
+        setNameInput(''); setPersonalityInput('');
+      };
+      const removePlayer = (idx) => setPlayers(prev => prev.filter((_,i) => i !== idx));
+      const handleKeyDown = (e) => { if (e.key === 'Enter') addPlayer(); };
+
+      const handleAddWildcard = async () => {
+        const res = await callAI("Generate a wildcard reality show cast member. Format: NAME: [name] PERSONALITY: [description]", [], "You generate fictional reality show characters.");
+        const nm = res.match(/NAME:\s*(.+)/i); const ps = res.match(/PERSONALITY:\s*(.+)/i);
+        setPlayers(prev => [...prev, { name: (nm ? nm[1].trim().toUpperCase() : 'WILDCARD_' + (prev.length+1)), personality: (ps ? ps[1].trim() : 'CHAOTIC'), score: 0, status: 'ACTIVE', isWildcard: true }]);
+      };
+
+      const handleInitiate = () => { gameId === 10 ? setSetupPhase('theme') : onStart(players, {}); };
+      const handleThemeSelect = (t) => { setSelectedTheme(t); setSetupPhase('episodes'); };
+      const handleEpisodeSelect = (c) => { onStart(players, { theme: selectedTheme, episodes: c }); };
+
+      if (setupPhase === 'theme') {
+        const themes = [{id:'SINGLES_INFERNO',label:'SINGLES INFERNO',desc:'Korean dating drama'},{id:'SCI_FI_DARK',label:'SCI-FI DARK',desc:'Dark sci-fi serial'},{id:'MYSTERY_MURDER',label:'MYSTERY MURDER',desc:'Victorian murder mystery'},{id:'SURVIVAL',label:'SURVIVAL',desc:'Survivor-style elimination'}];
+        return (<main className="relative h-screen w-full bg-black text-white overflow-hidden flex flex-col items-center justify-center" style={{cursor:'crosshair'}}><SigintOverlays/><SigintHeader/>
+          <h1 className="michroma text-4xl sigint-glitch tracking-widest mb-4 uppercase">THEME_SELECTION</h1>
+          <p className="font-mono text-[10px] text-white/40 tracking-widest mb-12 uppercase">SELECT SIMULATION PROTOCOL</p>
+          <div className="grid grid-cols-2 gap-6 max-w-3xl w-full px-8">{themes.map(t=>(<button key={t.id} onClick={()=>handleThemeSelect(t.id)} className="border border-white/20 bg-black p-8 text-left hover:border-[#C9A84C] hover:bg-white/5 transition-all group"><h3 className="michroma text-xl text-[#C9A84C] tracking-widest mb-2">{t.label}</h3><p className="text-[10px] text-white/40 font-mono tracking-widest uppercase">{t.desc}</p></button>))}</div>
+          <button onClick={()=>setSetupPhase('players')} className="mt-8 text-xs font-mono text-white/30 hover:text-white/60 transition-colors tracking-widest uppercase">&#60; BACK</button>
+        </main>);
+      }
+      if (setupPhase === 'episodes') {
+        return (<main className="relative h-screen w-full bg-black text-white overflow-hidden flex flex-col items-center justify-center" style={{cursor:'crosshair'}}><SigintOverlays/><SigintHeader/>
+          <h1 className="michroma text-4xl sigint-glitch tracking-widest mb-4 uppercase">HOW MANY EPISODES</h1>
+          <div className="flex gap-6 mb-8">{[3,5,8].map(n=>(<button key={n} onClick={()=>handleEpisodeSelect(n)} className="w-24 h-24 border border-white/20 bg-black flex items-center justify-center hover:border-[#C9A84C] transition-all"><span className="michroma text-3xl text-[#C9A84C]">{n}</span></button>))}</div>
+          <div className="flex items-center gap-4"><input type="number" min="1" max="20" value={customEpisodes} onChange={e=>setCustomEpisodes(e.target.value)} className="w-24 bg-transparent border border-white/20 px-4 py-3 michroma text-xl text-center text-[#C9A84C] focus:ring-0 outline-none" placeholder="?"/><button onClick={()=>{if(customEpisodes&&parseInt(customEpisodes)>0)handleEpisodeSelect(parseInt(customEpisodes));}} className="border border-[#C9A84C] px-6 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest">CUSTOM</button></div>
+          <button onClick={()=>setSetupPhase('theme')} className="mt-8 text-xs font-mono text-white/30 hover:text-white/60 transition-colors tracking-widest uppercase">&#60; BACK</button>
+        </main>);
+      }
+
+      return (
+        <main className="relative h-screen w-full bg-black text-white overflow-hidden" style={{cursor:'crosshair'}}>
+          <SigintOverlays/><SigintHeader/>
+          <div className="relative flex h-screen w-full z-10 pt-[52px]">
+            <aside className="w-[260px] h-full bg-black border-r border-white/10 flex flex-col p-6 gap-y-12">
+              <header><h1 className="michroma text-2xl leading-none tracking-tight sigint-glitch mb-2">GAME<br/>NIGHT AI</h1><div className="h-[1px] w-full bg-gradient-to-r from-[#FF003C] via-[#00E5FF] to-transparent opacity-50"></div></header>
+              <section className="flex-1 sigint-scroll overflow-y-auto">
+                <div className="flex items-center justify-between mb-4"><h2 className="text-[10px] tracking-[0.2em] font-bold text-neutral-500 uppercase">Deployed_Entities</h2><span className="text-[10px] text-white/40">[{String(players.length).padStart(2,'0')}/08]</span></div>
+                <div className="space-y-4">
+                  {players.map((p,i)=>(<div key={i} className="flex items-center gap-3 group cursor-pointer" onClick={()=>removePlayer(i)}><span className="text-[#C9A84C] font-bold text-xs">&gt;</span><div className="flex flex-col flex-1"><span className="michroma text-xs tracking-wider uppercase">{p.name}</span>{p.personality&&<span className="text-[9px] text-neutral-500 font-mono tracking-tighter">PROFILE: {p.personality}</span>}{p.isWildcard&&<span className="text-[9px] text-[#FF003C] font-mono">WILDCARD</span>}</div><span className="text-[10px] text-red-500/0 group-hover:text-red-500/80 transition-all">✕</span></div>))}
+                  {players.length===0&&(<div className="flex items-center gap-3 opacity-60"><span className="text-neutral-600 text-xs">[ ]</span><div className="flex flex-col"><span className="michroma text-xs tracking-wider uppercase text-neutral-400">AWAITING_INPUT</span></div></div>)}
+                </div>
+              </section>
+              <button onClick={onBack} className="text-[10px] font-mono text-white/30 hover:text-white/60 transition-colors tracking-widest uppercase text-left">&lt; ABORT_SETUP</button>
+            </aside>
+            <div className="flex-1 relative flex flex-col items-center justify-center p-20">
+              <div className="w-full max-w-2xl space-y-12">
+                <div className="mb-2"><span className="michroma text-[10px] tracking-[0.5em] text-[#C9A84C]/60 uppercase">{gameConfig?.title} // PLAYER_SETUP</span></div>
+                <div className="space-y-2">
+                  <label className="text-[10px] michroma tracking-[0.4em] text-white/40 block ml-1 uppercase">{showPersonality ? 'Operative_Name' : 'Enter_Player_Name'}</label>
+                  <input autoFocus className="w-full bg-transparent border border-white/40 px-6 py-5 michroma text-xl tracking-widest focus:ring-0 focus:border-white transition-colors placeholder:text-white/10 uppercase outline-none" placeholder="ENTER NAME_" type="text" value={nameInput} onChange={e=>setNameInput(e.target.value)} onKeyDown={handleKeyDown}/>
+                </div>
+                {showPersonality&&(<div className="space-y-2"><label className="text-[10px] michroma tracking-[0.4em] text-white/40 block ml-1 uppercase">Personality_Matrix</label><textarea className="w-full bg-transparent border border-white/20 px-6 py-4 text-sm tracking-widest focus:ring-0 focus:border-white/60 transition-colors placeholder:text-white/10 resize-none uppercase outline-none" placeholder="DESCRIBE BEHAVIORAL PROTOCOL..." rows="3" value={personalityInput} onChange={e=>setPersonalityInput(e.target.value)}></textarea></div>)}
+                <div className="flex gap-4">
+                  <button onClick={addPlayer} className="group relative px-10 py-3 border border-[#C9A84C] overflow-hidden"><div className="absolute inset-0 bg-[#C9A84C] translate-y-full group-hover:translate-y-0 transition-transform duration-200"></div><span className="relative z-10 michroma text-xs tracking-[0.3em] text-[#C9A84C] group-hover:text-black transition-colors uppercase">ADD_PLAYER</span></button>
+                  {gameId===10&&(<button onClick={handleAddWildcard} className="group relative px-10 py-3 border border-[#FF003C] overflow-hidden"><div className="absolute inset-0 bg-[#FF003C] translate-y-full group-hover:translate-y-0 transition-transform duration-200"></div><span className="relative z-10 michroma text-xs tracking-[0.3em] text-[#FF003C] group-hover:text-black transition-colors uppercase">ADD_WILDCARD</span></button>)}
+                </div>
+              </div>
+            </div>
+          </div>
+          {players.length>=minPlayers&&(<div className="fixed bottom-12 right-12 z-[55]"><button onClick={handleInitiate} className="group relative flex items-center gap-6"><div className="text-right flex flex-col"><span className="michroma text-[10px] tracking-[0.5em] text-[#C9A84C] opacity-50 group-hover:opacity-100 transition-opacity uppercase">System_Ready</span><span className="text-[9px] font-mono text-neutral-500 uppercase">{players.length} Operator(s) Deployed</span></div><div className="relative p-6 border border-[#C9A84C] group-hover:bg-[#C9A84C] transition-all"><span className="michroma text-xl tracking-[0.2em] text-[#C9A84C] group-hover:text-black transition-colors uppercase">INITIATE_PROTOCOL</span><div className="absolute -top-[2px] -left-[2px] w-2 h-2 border-t-2 border-l-2 border-[#C9A84C]"></div><div className="absolute -bottom-[2px] -right-[2px] w-2 h-2 border-b-2 border-r-2 border-[#C9A84C]"></div></div></button></div>)}
+        </main>
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       GAME 1 — WOULD YOU RATHER (AI only, 10 questions)
+    ═══════════════════════════════════════════════════════ */
+    function WouldYouRatherGame({ players, onFinish, onLobby }) {
+      const [qNum, setQNum] = useState(1);
+      const [question, setQuestion] = useState('');
+      const [optionA, setOptionA] = useState('');
+      const [optionB, setOptionB] = useState('');
+      const [phase, setPhase] = useState('loading');
+      const [votes, setVotes] = useState({});
+      const [voterIdx, setVoterIdx] = useState(0);
+      const [reaction, setReaction] = useState('');
+      const [scores, setScores] = useState({});
+      const [history, setHistory] = useState([]);
+      const totalQ = 10;
+      const sysPrompt = "You are a chaotic game show host. Generate one extremely creative Would You Rather dilemma. Format EXACTLY as: QUESTION: [question text] OPTION_A: [option a text] OPTION_B: [option b text]. Make it progressively more unhinged. Round 1-3: mildly awkward. Round 4-6: genuinely difficult and spicy. Round 7-9: unhinged. Round 10: absolutely chaotic.";
+
+      const loadQ = async (round) => {
+        setPhase('loading'); setReaction('');
+        const names = players.map(p=>p.name).join(', ');
+        const res = await callAI(`Generate a Would You Rather question for round ${round} of ${totalQ}. Players: ${names}. Escalate intensity.`, history, sysPrompt);
+        const qM = res.match(/QUESTION:\s*(.+?)(?=OPTION_A:|$)/is);
+        const aM = res.match(/OPTION_A:\s*(.+?)(?=OPTION_B:|$)/is);
+        const bM = res.match(/OPTION_B:\s*(.+)/is);
+        setQuestion(qM ? qM[1].trim() : 'Would you rather have unlimited power or unlimited knowledge?');
+        setOptionA(aM ? aM[1].trim() : 'Option A');
+        setOptionB(bM ? bM[1].trim() : 'Option B');
+        setVotes({}); setVoterIdx(0);
+        setHistory(prev=>[...prev,{role:'assistant',content:res}]);
+        setPhase('voting');
+      };
+      useEffect(()=>{loadQ(1);},[]);
+
+      const handleVote = async (choice) => {
+        const voter = players[voterIdx];
+        const nv = {...votes,[voter.name]:choice};
+        setVotes(nv);
+        if (voterIdx < players.length - 1) { setVoterIdx(prev=>prev+1); return; }
+        setPhase('results');
+        const vSummary = Object.entries(nv).map(([n,v])=>`${n} chose ${v}`).join(', ');
+        const r = await callAI(`Players voted: ${vSummary}. React savagely in 2 sentences.`, history, "You are a savage game show host reacting to player choices.");
+        setReaction(cleanText(r));
+        const ns = {...scores};
+        Object.entries(nv).forEach(([n])=>{ns[n]=(ns[n]||0)+Math.floor(Math.random()*20)+10;});
+        setScores(ns);
+      };
+
+      const nextQ = () => { const n=qNum+1; setQNum(n); loadQ(n); };
+      const finish = async () => {
+        const allChoices = Object.entries(scores).map(([n,s])=>`${n}: ${s} points`).join(', ');
+        const verdict = await callAI(`The game is over. Players and scores: ${allChoices}. Give a final group personality verdict based on their answers. Be savage.`, history, "You are a chaotic game show host giving final verdicts.");
+        const fp = players.map(p=>({...p,score:String(scores[p.name]||50)}));
+        onFinish(fp, 'WOULD YOU RATHER');
+      };
+
+      const totalV = Object.keys(votes).length;
+      const aV = Object.values(votes).filter(v=>v==='A').length;
+      const bV = Object.values(votes).filter(v=>v==='B').length;
+      const aP = totalV ? Math.round((aV/totalV)*100) : 0;
+      const bP = totalV ? Math.round((bV/totalV)*100) : 0;
+
+      return (
+        <main className="bg-black text-white h-screen w-screen relative overflow-hidden flex flex-col" style={{cursor:'crosshair'}}>
+          <SigintOverlays/><SigintHeader onExit={onLobby}/>
+          <div className="flex-1 flex flex-col items-center justify-center px-8 pt-[76px] pb-8 relative z-10">
+            <div className="mb-4 font-mono text-xs text-[#00E5FF]/50 uppercase tracking-widest">QUESTION {qNum} / {totalQ}</div>
+            {phase==='loading'&&<div className="michroma text-2xl text-[#C9A84C] animate-pulse tracking-widest">GENERATING DILEMMA...</div>}
+            {phase==='voting'&&(<>
+              <h1 className="michroma text-3xl md:text-4xl text-center sigint-glitch text-white tracking-wide mb-12 max-w-4xl leading-relaxed">{question}</h1>
+              {players.length>1&&<div className="mb-6 michroma text-sm text-[#C9A84C] tracking-widest">{players[voterIdx]?.name}'S TURN</div>}
+              <div className="grid grid-cols-2 gap-6 w-full max-w-4xl">
+                <button onClick={()=>handleVote('A')} className="border border-white/20 bg-black p-8 text-center hover:border-[#FF003C] hover:bg-[#FF003C]/10 transition-all min-h-[200px] flex flex-col items-center justify-center"><div className="michroma text-[10px] text-[#FF003C] tracking-widest mb-4">OPTION_A</div><p className="text-lg text-white leading-relaxed">{optionA}</p></button>
+                <button onClick={()=>handleVote('B')} className="border border-white/20 bg-black p-8 text-center hover:border-[#00E5FF] hover:bg-[#00E5FF]/10 transition-all min-h-[200px] flex flex-col items-center justify-center"><div className="michroma text-[10px] text-[#00E5FF] tracking-widest mb-4">OPTION_B</div><p className="text-lg text-white leading-relaxed">{optionB}</p></button>
+              </div>
+            </>)}
+            {phase==='results'&&(<div className="text-center max-w-3xl">
+              <h2 className="michroma text-2xl sigint-glitch mb-8 tracking-widest">RESULTS</h2>
+              <div className="flex w-full h-12 mb-6 overflow-hidden border border-white/20"><div className="bg-[#FF003C]/30 flex items-center justify-center transition-all duration-1000" style={{width:`${aP}%`}}><span className="michroma text-sm text-white">{aP}% A</span></div><div className="bg-[#00E5FF]/30 flex items-center justify-center transition-all duration-1000" style={{width:`${bP}%`}}><span className="michroma text-sm text-white">{bP}% B</span></div></div>
+              <div className="flex flex-wrap gap-4 justify-center mb-8">{Object.entries(votes).map(([n,c])=>(<div key={n} className={`px-4 py-2 border ${c==='A'?'border-[#FF003C] text-[#FF003C]':'border-[#00E5FF] text-[#00E5FF]'} text-xs michroma tracking-widest`}>{n}: {c}</div>))}</div>
+              {reaction&&<p className="text-lg text-white/80 leading-relaxed mb-8">{reaction}</p>}
+              {qNum<totalQ ? <button onClick={nextQ} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">NEXT QUESTION</button> : <button onClick={finish} className="border border-[#C9A84C] px-12 py-4 michroma text-sm text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">VIEW LEADERBOARD</button>}
+            </div>)}
+          </div>
+        </main>
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       GAME 2 — ROAST BATTLE (Text-based, 3 rounds, AI judge)
+    ═══════════════════════════════════════════════════════ */
+    function RoastBattleGame({ players, onFinish, onLobby }) {
+      const [playerA, setPlayerA] = useState(null);
+      const [playerB, setPlayerB] = useState(null);
+      const [phase, setPhase] = useState('init'); // init, a_turn, b_turn, judging, result, finished
+      const [roundNum, setRoundNum] = useState(1);
+      const [input, setInput] = useState('');
+      const [transcript, setTranscript] = useState([]);
+      const [ammoText, setAmmoText] = useState('');
+      const [showAmmo, setShowAmmo] = useState(false);
+      const [judgeResult, setJudgeResult] = useState(null);
+      const [remaining, setRemaining] = useState([]);
+      const [winner, setWinner] = useState(null);
+      const [allScores, setAllScores] = useState({});
+      const [allVerdicts, setAllVerdicts] = useState({});
+      const [battled, setBattled] = useState(new Set());
+      const totalRounds = 3;
+
+      useEffect(() => {
+        if (players.length >= 2) {
+          const shuffled = [...players].sort(() => Math.random() - 0.5);
+          setPlayerA(shuffled[0]); setPlayerB(shuffled[1]);
+          setRemaining(shuffled.slice(2));
+          setBattled(new Set([shuffled[0].name, shuffled[1].name]));
+          setPhase('a_turn');
+        }
+      }, []);
+
+      const handleSubmit = async (e) => {
+        if (e.key !== 'Enter' || !input.trim()) return;
+        const msg = input.trim(); setInput('');
+        const attacker = phase === 'a_turn' ? playerA?.name : playerB?.name;
+        const newT = [...transcript, { from: attacker, text: msg }];
+        setTranscript(newT);
+
+        if (phase === 'a_turn') { setPhase('b_turn'); }
+        else if (phase === 'b_turn') {
+          if (roundNum < totalRounds) { setRoundNum(prev => prev + 1); setPhase('a_turn'); }
+          else { judgeRoastBattle(newT); }
+        }
+      };
+
+      const judgeRoastBattle = async (t) => {
+        setPhase('judging');
+        const tStr = t.map(m => `${m.from}: "${m.text}"`).join('\n');
+        const prompt = `You are a brutal roast battle judge. Here is the full roast battle transcript between ${playerA?.name} and ${playerB?.name}:\n${tStr}\nJudge who won based on: creativity, savagery, humor, and comebacks. Give each player a score out of 10. Declare a winner. Give a one-line brutal verdict for each player. Format: WINNER: [name] PLAYER_A_SCORE: [score]/10 PLAYER_B_SCORE: [score]/10 PLAYER_A_VERDICT: [verdict] PLAYER_B_VERDICT: [verdict] SUMMARY: [2 sentence summary]`;
+        const res = await callAI(prompt, [], "You are a roast battle judge. Be brutally honest.");
+        const winnerMatch = res.match(/WINNER:\s*(.+?)(?=PLAYER_A_SCORE:|$)/is);
+        const aScoreMatch = res.match(/PLAYER_A_SCORE:\s*(\d+)/i);
+        const bScoreMatch = res.match(/PLAYER_B_SCORE:\s*(\d+)/i);
+        const aVerdictMatch = res.match(/PLAYER_A_VERDICT:\s*(.+?)(?=PLAYER_B_VERDICT:|$)/is);
+        const bVerdictMatch = res.match(/PLAYER_B_VERDICT:\s*(.+?)(?=SUMMARY:|$)/is);
+        const summaryMatch = res.match(/SUMMARY:\s*(.+)/is);
+
+        const aScore = aScoreMatch ? parseInt(aScoreMatch[1]) : 5;
+        const bScore = bScoreMatch ? parseInt(bScoreMatch[1]) : 5;
+        const w = aScore >= bScore ? playerA : playerB;
+        setWinner(w);
+
+        const ns = { ...allScores };
+        ns[playerA.name] = (ns[playerA.name] || 0) + aScore;
+        ns[playerB.name] = (ns[playerB.name] || 0) + bScore;
+        setAllScores(ns);
+
+        const nv = { ...allVerdicts };
+        nv[playerA.name] = aVerdictMatch ? aVerdictMatch[1].trim() : 'SCORCHED';
+        nv[playerB.name] = bVerdictMatch ? bVerdictMatch[1].trim() : 'BURNED';
+        setAllVerdicts(nv);
+
+        setJudgeResult({
+          winner: w.name,
+          aScore, bScore,
+          aVerdict: aVerdictMatch ? aVerdictMatch[1].trim() : '',
+          bVerdict: bVerdictMatch ? bVerdictMatch[1].trim() : '',
+          summary: summaryMatch ? summaryMatch[1].trim() : cleanText(res)
+        });
+        setPhase('result');
+      };
+
+      const handleNeedAmmo = async () => {
+        const attacker = phase === 'a_turn' ? playerA : playerB;
+        const target = phase === 'a_turn' ? playerB : playerA;
+        setShowAmmo(true); setAmmoText('LOADING AMMUNITION...');
+        const res = await callAI(
+          `Generate one devastating roast line for ${attacker?.name} to use against ${target?.name} who is described as "${target?.personality || 'mysterious'}". One line only. Make it brutally creative and specific. Do not hold back.`,
+          [], "You write devastating roast one-liners."
+        );
+        setAmmoText(cleanText(res));
+      };
+
+      const nextBattle = () => {
+        if (remaining.length === 0) { setPhase('finished'); return; }
+        const challenger = remaining[0];
+        setPlayerA(winner); setPlayerB(challenger);
+        setRemaining(prev => prev.slice(1));
+        setBattled(prev => { const s = new Set(prev); s.add(challenger.name); return s; });
+        setTranscript([]); setRoundNum(1); setJudgeResult(null);
+        setPhase('a_turn');
+      };
+
+      const finishGame = () => {
+        const fp = players.map(p => ({
+          ...p, score: String(allScores[p.name] || 0),
+          verdict: allVerdicts[p.name] || 'UNSCATHED'
+        }));
+        onFinish(fp, 'ROAST BATTLE');
+      };
+
+      const currentAttacker = phase === 'a_turn' ? playerA : playerB;
+      const currentTarget = phase === 'a_turn' ? playerB : playerA;
+
+      return (
+        <main className="bg-black text-white overflow-hidden h-screen w-screen relative" style={{cursor:'crosshair'}}>
+          <SigintOverlays/><SigintHeader onExit={onLobby}/>
+          <div className="relative grid grid-cols-2 h-full w-full pt-[52px]">
+            {/* Player A side */}
+            <section className={`relative overflow-hidden border-r border-white/20 flex items-start p-12 ${phase==='a_turn'?'bg-gradient-to-br from-[#FF003C]/15 to-transparent':'bg-gradient-to-br from-[#FF003C]/5 to-transparent'} transition-all`}>
+              <div className="relative z-20"><h2 className="michroma text-5xl tracking-widest sigint-glitch uppercase mb-2">{playerA?.name}</h2><div className={`text-[10px] uppercase michroma ${phase==='a_turn'?'text-[#FF003C] animate-pulse':'text-white/40'}`}>{phase==='a_turn'?'YOUR TURN TO ROAST':'Waiting...'}</div>
+                {judgeResult&&<div className="mt-4"><span className="michroma text-3xl text-[#C9A84C]">{judgeResult.aScore}/10</span><p className="text-sm text-white/60 mt-2">{judgeResult.aVerdict}</p></div>}
+              </div>
+            </section>
+            {/* Player B side */}
+            <section className={`relative overflow-hidden flex items-start justify-end p-12 text-right ${phase==='b_turn'?'bg-gradient-to-bl from-[#00E5FF]/15 to-transparent':'bg-gradient-to-bl from-[#00E5FF]/5 to-transparent'} transition-all`}>
+              <div className="relative z-20"><h2 className="michroma text-5xl tracking-widest sigint-glitch uppercase mb-2">{playerB?.name}</h2><div className={`text-[10px] uppercase michroma ${phase==='b_turn'?'text-[#00E5FF] animate-pulse':'text-white/40'}`}>{phase==='b_turn'?'YOUR TURN TO ROAST':'Waiting...'}</div>
+                {judgeResult&&<div className="mt-4"><span className="michroma text-3xl text-[#C9A84C]">{judgeResult.bScore}/10</span><p className="text-sm text-white/60 mt-2">{judgeResult.bVerdict}</p></div>}
+              </div>
+            </section>
+
+            {/* Center content */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-30 pt-[52px] pointer-events-none">
+              <div className="michroma text-[10px] text-white/40 tracking-widest mb-2">ROUND {roundNum} / {totalRounds}</div>
+              {(phase==='a_turn'||phase==='b_turn')&&(
+                <div className="text-center pointer-events-auto"><p className="michroma text-lg text-[#C9A84C] tracking-widest mb-2">{currentAttacker?.name} — ROAST {currentTarget?.name}</p><p className="text-sm text-white/40">TYPE YOUR ROAST BELOW</p></div>
+              )}
+              {phase==='judging'&&<div className="michroma text-2xl text-[#C9A84C] animate-pulse tracking-widest">AI IS JUDGING...</div>}
+              {phase==='result'&&judgeResult&&(
+                <div className="text-center pointer-events-auto">
+                  <h3 className="michroma text-5xl text-[#C9A84C] sigint-glitch tracking-widest mb-4">{judgeResult.winner} WINS</h3>
+                  <p className="text-lg text-white/60 mb-8 max-w-lg">{judgeResult.summary}</p>
+                  <button onClick={remaining.length>0?nextBattle:finishGame} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">{remaining.length>0?'NEXT CHALLENGER':'VIEW LEADERBOARD'}</button>
+                </div>
+              )}
+              {phase==='finished'&&(
+                <div className="text-center pointer-events-auto"><h3 className="michroma text-4xl text-[#C9A84C] sigint-glitch tracking-widest mb-8">ALL BATTLES COMPLETE</h3><button onClick={finishGame} className="border border-[#C9A84C] px-12 py-4 michroma text-sm text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">VIEW LEADERBOARD</button></div>
+              )}
+
+              {/* Transcript */}
+              {transcript.length>0&&(phase==='a_turn'||phase==='b_turn')&&(
+                <div className="mt-6 max-w-md w-full space-y-2 max-h-[200px] overflow-y-auto sigint-scroll pointer-events-auto">
+                  {transcript.map((m,i)=>(<div key={i} className={`px-4 py-2 border ${m.from===playerA?.name?'border-[#FF003C]/30 text-[#FF003C]/80':'border-[#00E5FF]/30 text-[#00E5FF]/80'} text-sm`}><span className="font-bold text-xs">{m.from}:</span> {m.text}</div>))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom input + ammo */}
+          {(phase==='a_turn'||phase==='b_turn')&&(
+            <div className="fixed bottom-0 left-0 w-full z-[55] px-6 pb-10 flex flex-col items-center gap-4">
+              <div className="w-full max-w-2xl flex items-center gap-4 sigint-ghost-border px-4 py-3 bg-black/80">
+                <span className="michroma text-[#C9A84C] text-xs">&gt;&gt;</span>
+                <input autoFocus className="flex-grow bg-transparent border-none focus:ring-0 text-white text-sm tracking-wide placeholder:text-white/20 outline-none uppercase" placeholder={`${currentAttacker?.name}, TYPE YOUR ROAST...`} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={handleSubmit}/>
+              </div>
+              <button onClick={handleNeedAmmo} className="px-12 py-3 border border-secondary/60 bg-black/80 hover:bg-secondary hover:text-black transition-all duration-300 group"><span className="michroma text-sm text-secondary group-hover:text-black tracking-[0.4em] uppercase">NEED AMMO?</span></button>
+            </div>
+          )}
+
+          {showAmmo&&ammoText&&(
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={()=>setShowAmmo(false)}><div className="max-w-lg p-8 border border-[#C9A84C]/40 bg-black/90"><div className="michroma text-[10px] text-[#C9A84C] tracking-widest mb-4">AMMUNITION_LOADED</div><p className="text-lg text-white leading-relaxed">{ammoText}</p><div className="mt-6 text-[10px] text-white/30 font-mono">TAP ANYWHERE TO DISMISS</div></div></div>
+          )}
+        </main>
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       GAME 3 — TWO TRUTHS ONE LIE (AI mode + Friends mode)
+    ═══════════════════════════════════════════════════════ */
+    function TwoTruthsGame({ players, gameMode, onFinish, onLobby }) {
+      // AI MODE (1 player)
+      const [aiRound, setAiRound] = useState(1);
+      const [aiPhase, setAiPhase] = useState('player_input'); // player_input, ai_guessing, ai_turn, player_guessing, ai_reveal
+      const [playerStatements, setPlayerStatements] = useState(['','','']);
+      const [playerLie, setPlayerLie] = useState(null);
+      const [aiGuessText, setAiGuessText] = useState('');
+      const [aiStatements, setAiStatements] = useState([]);
+      const [aiLieIdx, setAiLieIdx] = useState(-1);
+      const [playerGuess, setPlayerGuess] = useState(null);
+      const [aiRevealText, setAiRevealText] = useState('');
+      const [aiScore, setAiScore] = useState(0);
+      const [playerScore, setPlayerScore] = useState(0);
+      const [loading, setLoading] = useState(false);
+      const totalAiRounds = 3;
+
+      // FRIENDS MODE (2+ players)
+      const [hotSeatIdx, setHotSeatIdx] = useState(0);
+      const [friendStatements, setFriendStatements] = useState([]);
+      const [friendLieIdx, setFriendLieIdx] = useState(-1);
+      const [friendPhase, setFriendPhase] = useState('input'); // input, voting, reveal
+      const [friendVotes, setFriendVotes] = useState({});
+      const [friendVoterIdx, setFriendVoterIdx] = useState(0);
+      const [friendScores, setFriendScores] = useState({});
+      const [customStatements, setCustomStatements] = useState(['','','']);
+      const [customLie, setCustomLie] = useState(null);
+
+      const isAI = gameMode === 'ai';
+      const hotSeatPlayer = isAI ? players[0] : players[hotSeatIdx];
+      const voters = isAI ? [] : players.filter((_,i) => i !== hotSeatIdx);
+
+      // === AI MODE ===
+      const submitPlayerStatements = async () => {
+        if (!playerStatements.every(s=>s.trim()) || playerLie === null) return;
+        setLoading(true); setAiPhase('ai_guessing');
+        const stmts = playerStatements.map((s,i)=>`Statement ${i+1}: ${s}`).join('\n');
+        const res = await callAI(`A player named ${players[0]?.name} submitted 3 statements. Two are truths, one is a lie:\n${stmts}\nDramatically analyze all 3, guess which is the lie with full theatrical reasoning, and give a confidence score out of 100.`, [], "You are a sharp lie detector AI. Be dramatic in your analysis.");
+        setAiGuessText(cleanText(res));
+        // Check if AI got it right
+        const guessMatch = res.match(/statement\s*(\d)/i);
+        const aiGuessed = guessMatch ? parseInt(guessMatch[1]) - 1 : -1;
+        if (aiGuessed !== playerLie) setPlayerScore(prev => prev + 1);
+        else setAiScore(prev => prev + 1);
+        setLoading(false);
+      };
+
+      const goToAiTurn = async () => {
+        setLoading(true); setAiPhase('ai_turn');
+        const res = await callAI("Generate 2 believable truths and 1 convincing lie about any topic, fictional scenario, or general knowledge. Format EXACTLY as: STATEMENT_1: [text] STATEMENT_2: [text] STATEMENT_3: [text] LIE: [1 or 2 or 3]", [], "You generate two truths and one lie. Make the lie very plausible.");
+        const s1=res.match(/STATEMENT_1:\s*(.+?)(?=STATEMENT_2:|$)/is);
+        const s2=res.match(/STATEMENT_2:\s*(.+?)(?=STATEMENT_3:|$)/is);
+        const s3=res.match(/STATEMENT_3:\s*(.+?)(?=LIE:|$)/is);
+        const lie=res.match(/LIE:\s*(\d)/i);
+        setAiStatements([s1?s1[1].trim():'S1',s2?s2[1].trim():'S2',s3?s3[1].trim():'S3']);
+        setAiLieIdx(lie?parseInt(lie[1])-1:2);
+        setLoading(false);
+        setAiPhase('player_guessing');
+      };
+
+      const handlePlayerGuessAI = (idx) => {
+        setPlayerGuess(idx);
+        if (idx === aiLieIdx) setPlayerScore(prev => prev + 1);
+        else setAiScore(prev => prev + 1);
+        setAiPhase('ai_reveal');
+        setAiRevealText(idx === aiLieIdx ? 'You got it right! Well played.' : `Wrong! The lie was Statement ${aiLieIdx + 1}.`);
+      };
+
+      const nextAiRound = () => {
+        if (aiRound >= totalAiRounds) {
+          const fp = players.map(p => ({ ...p, score: String(playerScore * 10 + 30) }));
+          onFinish(fp, 'TWO TRUTHS ONE LIE');
+        } else {
+          setAiRound(prev => prev + 1);
+          setAiPhase('player_input');
+          setPlayerStatements(['','','']);
+          setPlayerLie(null);
+          setAiGuessText('');
+          setAiStatements([]);
+          setPlayerGuess(null);
+        }
+      };
+
+      // === FRIENDS MODE ===
+      const submitFriendStatements = () => {
+        if (!customStatements.every(s=>s.trim()) || customLie === null) return;
+        setFriendStatements(customStatements.map(s=>s.trim()));
+        setFriendLieIdx(customLie);
+        setFriendPhase('voting');
+        setFriendVotes({}); setFriendVoterIdx(0);
+      };
+
+      const handleFriendVote = (stIdx) => {
+        const voter = voters[friendVoterIdx];
+        const nv = {...friendVotes, [voter.name]: stIdx};
+        setFriendVotes(nv);
+        if (friendVoterIdx < voters.length - 1) { setFriendVoterIdx(prev=>prev+1); }
+        else {
+          const ns = {...friendScores};
+          Object.entries(nv).forEach(([name, guess]) => { if (guess === friendLieIdx) ns[name] = (ns[name]||0) + 10; });
+          setFriendScores(ns);
+          setFriendPhase('reveal');
+        }
+      };
+
+      const nextFriendPlayer = () => {
+        if (hotSeatIdx < players.length - 1) {
+          setHotSeatIdx(prev => prev + 1);
+          setFriendPhase('input');
+          setCustomStatements(['','','']);
+          setCustomLie(null);
+        } else {
+          const fp = players.map(p => ({ ...p, score: String(friendScores[p.name] || 0) }));
+          onFinish(fp, 'TWO TRUTHS ONE LIE');
+        }
+      };
+
+      // === RENDER ===
+      return (
+        <main className="bg-black text-white h-screen w-screen relative overflow-hidden flex flex-col" style={{cursor:'crosshair'}}>
+          <SigintOverlays/><SigintHeader onExit={onLobby}/>
+          <div className="flex-1 flex flex-col items-center justify-center px-8 pt-[76px] pb-8 relative z-10 overflow-y-auto sigint-scroll">
+
+            {isAI ? (<>
+              {/* AI MODE */}
+              <h2 className="michroma text-4xl sigint-glitch text-white tracking-widest mb-2 uppercase">{players[0]?.name}</h2>
+              <div className="michroma text-[10px] text-[#C9A84C] tracking-widest mb-6">ROUND {aiRound} / {totalAiRounds} — SCORES: YOU {playerScore} | AI {aiScore}</div>
+
+              {aiPhase==='player_input'&&(
+                <div className="w-full max-w-xl space-y-4">
+                  <p className="michroma text-sm text-white/40 tracking-widest mb-4 text-center">ENTER YOUR 3 STATEMENTS (2 TRUTHS, 1 LIE)</p>
+                  {[0,1,2].map(i=>(<div key={i} className="flex items-center gap-4"><span className="michroma text-lg text-[#C9A84C]">{i+1}</span><input className="flex-1 bg-transparent border border-white/20 px-4 py-3 text-sm focus:ring-0 focus:border-white/60 outline-none" placeholder={`Statement ${i+1}...`} value={playerStatements[i]} onChange={e=>{const ns=[...playerStatements];ns[i]=e.target.value;setPlayerStatements(ns);}}/></div>))}
+                  <div className="text-center mt-4"><p className="michroma text-[10px] text-white/40 mb-4 tracking-widest">WHICH IS YOUR LIE?</p><div className="flex gap-4 justify-center">{[0,1,2].map(i=>(<button key={i} onClick={()=>setPlayerLie(i)} className={`w-12 h-12 border ${playerLie===i?'border-[#FF003C] bg-[#FF003C]/20 text-[#FF003C]':'border-white/20 text-white/60'} michroma text-lg`}>{i+1}</button>))}</div>
+                  <button onClick={submitPlayerStatements} className="mt-6 border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest">SUBMIT</button></div>
+                </div>
+              )}
+
+              {aiPhase==='ai_guessing'&&(<div className="max-w-2xl text-center">
+                {loading?<div className="michroma text-xl text-[#C9A84C] animate-pulse tracking-widest">AI IS ANALYZING...</div>:<><p className="text-lg text-white/80 leading-relaxed mb-8">{aiGuessText}</p><button onClick={goToAiTurn} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest">NOW AI'S TURN</button></>}
+              </div>)}
+
+              {aiPhase==='player_guessing'&&(<div className="text-center max-w-3xl">
+                {loading?<div className="michroma text-xl text-[#C9A84C] animate-pulse tracking-widest">AI IS GENERATING...</div>:(<>
+                <p className="michroma text-sm text-white/40 tracking-widest mb-8">AI'S STATEMENTS — WHICH IS THE LIE?</p>
+                <div className="space-y-4">{aiStatements.map((s,i)=>(<button key={i} onClick={()=>handlePlayerGuessAI(i)} className="w-full border border-white/20 bg-black p-6 text-left hover:border-[#C9A84C] hover:bg-white/5 transition-all flex items-center gap-4"><span className="michroma text-xl text-[#C9A84C]">{i+1}</span><span className="text-lg text-white">{s}</span></button>))}</div>
+                </>)}
+              </div>)}
+
+              {aiPhase==='ai_reveal'&&(<div className="text-center max-w-3xl">
+                <h3 className="michroma text-2xl sigint-glitch tracking-widest mb-4">THE LIE WAS STATEMENT {aiLieIdx+1}</h3>
+                <div className="space-y-4 mb-8">{aiStatements.map((s,i)=>(<div key={i} className={`p-4 border ${i===aiLieIdx?'border-[#FF003C] bg-[#FF003C]/10':'border-green-500/30 bg-green-500/5'} flex items-center gap-4`}><span className={`michroma text-lg ${i===aiLieIdx?'text-[#FF003C]':'text-green-400'}`}>{i===aiLieIdx?'✕':'✓'}</span><span className="text-white">{s}</span></div>))}</div>
+                <p className="text-lg text-white/60 mb-8">{playerGuess===aiLieIdx?'You got it right!':'Wrong guess!'}</p>
+                <button onClick={nextAiRound} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">{aiRound>=totalAiRounds?'VIEW LEADERBOARD':'NEXT ROUND'}</button>
+              </div>)}
+            </>) : (<>
+              {/* FRIENDS MODE */}
+              <h2 className="michroma text-5xl sigint-glitch text-white tracking-widest mb-2 uppercase">{hotSeatPlayer?.name}</h2>
+              <div className="michroma text-[10px] text-[#C9A84C] tracking-widest mb-8">HOT SEAT — PLAYER {hotSeatIdx+1} OF {players.length}</div>
+
+              {friendPhase==='input'&&(
+                <div className="w-full max-w-xl space-y-4">
+                  <p className="michroma text-sm text-white/40 tracking-widest mb-4 text-center">{hotSeatPlayer?.name}, ENTER 3 STATEMENTS (2 TRUTHS, 1 LIE)</p>
+                  {[0,1,2].map(i=>(<div key={i} className="flex items-center gap-4"><span className="michroma text-lg text-[#C9A84C]">{i+1}</span><input className="flex-1 bg-transparent border border-white/20 px-4 py-3 text-sm focus:ring-0 focus:border-white/60 outline-none" placeholder={`Statement ${i+1}...`} value={customStatements[i]} onChange={e=>{const ns=[...customStatements];ns[i]=e.target.value;setCustomStatements(ns);}}/></div>))}
+                  <div className="text-center mt-4"><p className="michroma text-[10px] text-white/40 mb-4 tracking-widest">WHICH IS THE LIE?</p><div className="flex gap-4 justify-center">{[0,1,2].map(i=>(<button key={i} onClick={()=>setCustomLie(i)} className={`w-12 h-12 border ${customLie===i?'border-[#FF003C] bg-[#FF003C]/20 text-[#FF003C]':'border-white/20 text-white/60'} michroma text-lg`}>{i+1}</button>))}</div>
+                  <button onClick={submitFriendStatements} className="mt-6 border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest">SUBMIT</button></div>
+                </div>
+              )}
+
+              {friendPhase==='voting'&&(<div className="text-center max-w-3xl">
+                <p className="michroma text-sm text-white/40 tracking-widest mb-4">{voters[friendVoterIdx]?.name} — WHICH IS THE LIE?</p>
+                <div className="space-y-4">{friendStatements.map((s,i)=>(<button key={i} onClick={()=>handleFriendVote(i)} className="w-full border border-white/20 bg-black p-6 text-left hover:border-[#C9A84C] hover:bg-white/5 transition-all flex items-center gap-4"><span className="michroma text-xl text-[#C9A84C]">{i+1}</span><span className="text-lg text-white">{s}</span></button>))}</div>
+              </div>)}
+
+              {friendPhase==='reveal'&&(<div className="text-center max-w-3xl">
+                <h3 className="michroma text-2xl sigint-glitch tracking-widest mb-8">THE LIE WAS STATEMENT {friendLieIdx+1}</h3>
+                <div className="space-y-4 mb-8">{friendStatements.map((s,i)=>(<div key={i} className={`p-4 border ${i===friendLieIdx?'border-[#FF003C] bg-[#FF003C]/10':'border-green-500/30 bg-green-500/5'} flex items-center gap-4`}><span className={`michroma text-lg ${i===friendLieIdx?'text-[#FF003C]':'text-green-400'}`}>{i===friendLieIdx?'✕':'✓'}</span><span className="text-white">{s}</span></div>))}</div>
+                <div className="flex flex-wrap gap-3 justify-center mb-8">{Object.entries(friendVotes).map(([name,guess])=>(<span key={name} className={`px-3 py-1 border text-xs michroma ${guess===friendLieIdx?'border-green-500 text-green-400':'border-[#FF003C] text-[#FF003C]'}`}>{name}: {guess===friendLieIdx?'CORRECT':'WRONG'}</span>))}</div>
+                <button onClick={nextFriendPlayer} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">{hotSeatIdx<players.length-1?'NEXT PLAYER':'VIEW LEADERBOARD'}</button>
+              </div>)}
+            </>)}
+          </div>
+        </main>
+      );
+    }
+
+    /* ═══ GAMES 4-10: Keep existing implementations ═══ */
+    /* Game 4 — Chaos Story, Game 5 — Purity Score, Game 6 — Never Have I Ever,
+       Game 7 — Personality Roast, Game 8 — Guess Person, Game 9 — Who In Group,
+       Game 10 — Reality Show — all imported from previous version */
+
+    function ChaosStoryGame({players,onFinish,onLobby}){const[storyParts,setStoryParts]=useState([]);const[currentPlayerIdx,setCurrentPlayerIdx]=useState(0);const[input,setInput]=useState('');const[turnCount,setTurnCount]=useState(0);const[showChaos,setShowChaos]=useState(false);const[chaosText,setChaosText]=useState('');const[maxRot,setMaxRot]=useState(null);const[phase,setPhase]=useState('choose');const[isStreaming,setIsStreaming]=useState(false);const[endingText,setEndingText]=useState('');const[displayedEnding,setDisplayedEnding]=useState('');const[titleInput,setTitleInput]=useState('');const[finalTitle,setFinalTitle]=useState('');const storyRef=useRef(null);const totalTurns=maxRot?maxRot*players.length:0;useEffect(()=>{if(storyRef.current)storyRef.current.scrollTop=storyRef.current.scrollHeight;},[storyParts,displayedEnding]);const handleSubmit=async(e)=>{if(e.key!=='Enter'||!input.trim()||isStreaming)return;const um=input.trim();setInput('');const nt=turnCount+1;setTurnCount(nt);setStoryParts(prev=>[...prev,{type:'player',text:um,player:players[currentPlayerIdx]?.name}]);setCurrentPlayerIdx(prev=>(prev+1)%players.length);if(nt>0&&nt%5===0){setShowChaos(true);setIsStreaming(true);const st=storyParts.map(p=>p.text).join(' ')+' '+um;const cr=await callAI(`The story so far: "${st}". Generate one wild unexpected plot twist in ONE sentence.`,[],"You generate chaotic plot twists.");const ct=cleanText(cr);setChaosText(ct);setTimeout(()=>{setShowChaos(false);setStoryParts(prev=>[...prev,{type:'chaos',text:ct}]);setIsStreaming(false);},3000);return;}if(nt>=totalTurns){setPhase('ending');setIsStreaming(true);const st=storyParts.map(p=>p.text).join(' ')+' '+um;const ending=await callAI(`The story so far: "${st}". Write a dramatic conclusive ending in 3-4 sentences.`,[],"You write dramatic story endings.");const cl=cleanText(ending);const words=cl.split(' ');for(let i=0;i<words.length;i++){await new Promise(r=>setTimeout(r,100));setDisplayedEnding(prev=>prev+(i>0?' ':'')+words[i]);}setStoryParts(prev=>[...prev,{type:'ending',text:cl}]);setIsStreaming(false);setPhase('title_vote');}};const submitTitle=()=>{if(titleInput.trim()){setFinalTitle(titleInput.trim().toUpperCase());setPhase('finished');}};const finishGame=()=>{const fp=players.map(p=>({...p,score:String(Math.floor(Math.random()*40)+60)}));onFinish(fp,'CHAOS STORY');};if(phase==='choose'){return(<main className="bg-black text-white h-screen w-screen relative overflow-hidden flex flex-col items-center justify-center" style={{cursor:'crosshair'}}><SigintOverlays/><SigintHeader onExit={onLobby}/><h1 className="michroma text-4xl sigint-glitch tracking-widest mb-4">HOW MANY ROTATIONS</h1><div className="flex gap-8">{[2,3].map(n=>(<button key={n} onClick={()=>{setMaxRot(n);setPhase('playing');}} className="w-32 h-32 border border-white/20 bg-black flex items-center justify-center hover:border-[#C9A84C] transition-all"><span className="michroma text-5xl text-[#C9A84C]">{n}</span></button>))}</div></main>);}if(phase==='finished'){return(<main className="bg-black text-white h-screen w-screen relative overflow-hidden flex flex-col items-center justify-center" style={{cursor:'crosshair'}}><SigintOverlays/><SigintHeader/><h1 className="michroma text-5xl sigint-glitch tracking-widest mb-4">{finalTitle}</h1><p className="text-sm text-white/50 mb-8">A chaotic masterpiece</p><button onClick={finishGame} className="border border-[#C9A84C] px-12 py-4 michroma text-sm text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">VIEW LEADERBOARD</button></main>);}return(<main className="bg-black text-white overflow-hidden h-screen w-screen relative" style={{cursor:'crosshair'}}><SigintOverlays/><SigintHeader onExit={onLobby}/><aside className="fixed left-0 top-[52px] h-full w-64 border-r border-white/10 bg-black/95 flex flex-col p-4 gap-y-6 z-20 pt-4"><div className="text-[10px] tracking-widest text-neutral-500 mb-2 michroma">ROTATION_ORDER</div>{players.map((p,i)=>(<div key={i} className={i===currentPlayerIdx?"text-[#C9A84C] font-bold text-[10px] tracking-widest uppercase flex items-center":"text-neutral-400 text-[10px] tracking-widest uppercase px-4 py-1"}>{i===currentPlayerIdx&&<span className="mr-2">&gt;</span>}{i===currentPlayerIdx?p.name:`[ ${p.name} ]`}</div>))}<div className="mt-4 text-[10px] michroma text-white/30">TURN: {turnCount} / {totalTurns}</div></aside><div className="ml-64 pt-[52px] flex flex-col h-full relative"><section ref={storyRef} className="h-[65%] w-full bg-black flex flex-col p-12 overflow-y-auto sigint-scroll"><div className="max-w-3xl space-y-4 font-mono">{storyParts.map((para,i)=>(<p key={i} className={para.type==='chaos'?"text-[#C9A84C] leading-relaxed text-lg tracking-widest font-bold border-l-2 border-[#C9A84C] pl-4 sigint-glitch":para.type==='ending'?"text-[#C9A84C] leading-relaxed text-xl font-bold":para.type==='player'?"text-[#00E5FF]/80 leading-relaxed text-sm tracking-wide border-l-2 border-[#00E5FF]/30 pl-4":"text-white/60 leading-relaxed text-sm tracking-wide"}>{para.type==='player'&&<span className="text-[9px] text-[#00E5FF]/50 block mb-1">[{para.player}]</span>}{para.type==='chaos'&&<span className="text-[9px] text-[#FF003C] block mb-1">[CHAOS EVENT]</span>}{para.text}</p>))}{phase==='ending'&&displayedEnding&&(<p className="text-[#C9A84C] leading-relaxed text-xl font-bold">{displayedEnding}<span className="inline-block w-2 h-4 bg-[#C9A84C] ml-1 cursor-blink"></span></p>)}</div></section>{phase==='title_vote'&&(<section className="h-[35%] w-full border-t border-white/20 p-8 flex flex-col items-center justify-center bg-black"><p className="michroma text-sm text-white/40 tracking-widest mb-4">VOTE ON A TITLE</p><input className="w-full max-w-md bg-transparent border border-white/40 px-6 py-4 michroma text-xl text-center text-[#C9A84C] focus:ring-0 outline-none uppercase" placeholder="ENTER TITLE..." value={titleInput} onChange={e=>setTitleInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitTitle()}/><button onClick={submitTitle} className="mt-4 border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest">SUBMIT TITLE</button></section>)}{phase==='playing'&&(<section className="h-[35%] w-full border-t border-white/20 p-8 flex flex-col justify-end bg-neutral-900/10"><div className="flex items-center gap-4 mb-4"><span className="michroma text-[10px] tracking-widest text-neutral-500">INPUT — {players[currentPlayerIdx]?.name}</span><div className="h-px flex-grow bg-white/10"></div></div><input autoFocus className="w-full bg-transparent border-none focus:ring-0 text-white michroma text-xl tracking-widest placeholder:text-white/10 p-0 mb-2 outline-none uppercase" placeholder="ADD ONE SENTENCE TO THE STORY..." value={input} onChange={e=>setInput(e.target.value)} onKeyDown={handleSubmit} disabled={isStreaming}/></section>)}{showChaos&&(<div className="absolute inset-0 flex items-center justify-center z-[100] bg-black/40 backdrop-blur-[1px]"><div className="border-y border-white/20 bg-black/80 w-full py-20 flex flex-col items-center"><h2 className="michroma text-8xl text-white tracking-tighter sigint-glitch opacity-90">CHAOS EVENT</h2><p className="text-lg text-[#C9A84C] mt-4 max-w-2xl text-center">{chaosText}</p></div></div>)}</div></main>);}
+
+    function PurityScoreGame({players,onFinish,onLobby}){const[hsIdx,setHsIdx]=useState(0);const[qIdx,setQIdx]=useState(0);const[q,setQ]=useState('');const[yc,setYc]=useState(0);const[loading,setLoading]=useState(true);const[phase,setPhase]=useState('question');const[scoreData,setScoreData]=useState(null);const[pScores,setPScores]=useState({});const totalQ=20;const loadQ=async(n,name)=>{setLoading(true);const res=await callAI(`Generate question ${n} of 20 for ${name}. Escalate: 1-5 mild, 6-10 moderate, 11-15 spicy, 16-20 unhinged. Return ONLY the question.`,[],"You host a purity test for adults 21+.");setQ(cleanText(res));setLoading(false);};useEffect(()=>{loadQ(1,players[0]?.name);},[]);const handleAnswer=async(ans)=>{const ny=ans==='YES'?yc+1:yc;if(ans==='YES')setYc(prev=>prev+1);const nq=qIdx+1;if(nq>=totalQ){setLoading(true);const res=await callAI(`Player ${players[hsIdx]?.name} answered YES to ${ny} out of 20. Calculate purity score. Format: SCORE: [0-100] TITLE: [title] SUMMARY: [sentence]`,[],"You calculate purity scores.");const sm=res.match(/SCORE:\s*(\d+)/i);const tm=res.match(/TITLE:\s*(.+?)(?=SUMMARY:|$)/is);const sum=res.match(/SUMMARY:\s*(.+)/is);const ps={score:sm?sm[1]:String(100-(ny*5)),title:tm?tm[1].trim():'CLASSIFIED',summary:sum?sum[1].trim():'Analysis complete.'};setScoreData(ps);setPScores(prev=>({...prev,[players[hsIdx].name]:ps}));setLoading(false);setPhase('score_reveal');}else{setQIdx(nq);loadQ(nq+1,players[hsIdx]?.name);}};const nextP=()=>{if(hsIdx<players.length-1){setHsIdx(prev=>prev+1);setQIdx(0);setYc(0);setScoreData(null);setPhase('question');loadQ(1,players[hsIdx+1]?.name);}else{const fp=players.map(p=>({...p,score:pScores[p.name]?.score||'50',verdict:pScores[p.name]?.title||'CLASSIFIED'}));onFinish(fp,'PURITY SCORE');}};return(<main className="bg-black text-white h-screen w-screen relative overflow-hidden flex flex-col items-center justify-center" style={{cursor:'crosshair'}}><SigintOverlays/><SigintHeader onExit={onLobby}/><div className="relative z-10 flex flex-col items-center justify-center px-8 max-w-3xl text-center"><h2 className="michroma text-4xl sigint-glitch text-white tracking-widest mb-2 uppercase">{players[hsIdx]?.name}</h2><div className="michroma text-[10px] text-[#C9A84C] tracking-widest mb-8">PLAYER {hsIdx+1} OF {players.length}</div>{loading&&<div className="michroma text-xl text-[#C9A84C] animate-pulse tracking-widest">LOADING...</div>}{!loading&&phase==='question'&&(<><div className="michroma text-[10px] text-white/40 tracking-widest mb-4">QUESTION {qIdx+1} / {totalQ}</div><p className="text-2xl text-white leading-relaxed mb-12">{q}</p><div className="flex gap-8"><button onClick={()=>handleAnswer('YES')} className="w-40 h-20 border-2 border-white/20 flex items-center justify-center hover:border-green-400 hover:bg-green-400/10 transition-all"><span className="michroma text-2xl text-green-400">YES</span></button><button onClick={()=>handleAnswer('NO')} className="w-40 h-20 border-2 border-white/20 flex items-center justify-center hover:border-[#FF003C] hover:bg-[#FF003C]/10 transition-all"><span className="michroma text-2xl text-[#FF003C]">NO</span></button></div></>)}{!loading&&phase==='score_reveal'&&scoreData&&(<div className="text-center"><div className="michroma text-8xl text-[#C9A84C] sigint-glitch mb-4">{scoreData.score}%</div><div className="michroma text-3xl text-white tracking-widest mb-4">{scoreData.title}</div><p className="text-lg text-white/60 leading-relaxed mb-8">{scoreData.summary}</p><button onClick={nextP} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">{hsIdx<players.length-1?'NEXT PLAYER':'VIEW LEADERBOARD'}</button></div>)}</div></main>);}
+
+    function NeverHaveIEverGame({players,onFinish,onLobby}){const[stmt,setStmt]=useState('');const[tapped,setTapped]=useState(new Set());const[stmtCount,setStmtCount]=useState(0);const[loading,setLoading]=useState(true);const[phase,setPhase]=useState('statement');const[drinkMode,setDrinkMode]=useState(false);const[showToggle,setShowToggle]=useState(true);const[tapCounts,setTapCounts]=useState({});const[dareText,setDareText]=useState('');const[dareTarget,setDareTarget]=useState('');const loadStmt=async(n)=>{setLoading(true);setTapped(new Set());const res=await callAI(`Generate one Never Have I Ever statement for round ${n}. Escalate intensity. Return ONLY the statement text.`,[],"You generate Never Have I Ever statements for adult parties.");setStmt(cleanText(res));setLoading(false);setPhase('statement');setShowToggle(false);};const startGame=()=>{setShowToggle(false);loadStmt(1);};const handleTap=(name)=>{if(phase!=='statement')return;const nt=new Set(tapped);if(nt.has(name))nt.delete(name);else nt.add(name);setTapped(nt);};const lockVotes=()=>{const nc={...tapCounts};tapped.forEach(name=>{nc[name]=(nc[name]||0)+1;});setTapCounts(nc);setPhase('results');};const nextStmt=async()=>{const n=stmtCount+1;setStmtCount(n);if(n>0&&n%10===0){const mc=Object.entries(tapCounts).sort((a,b)=>b[1]-a[1])[0];if(mc){setDareTarget(mc[0]);setLoading(true);setPhase('dare');const res=await callAI(`Generate one funny dare for ${mc[0]}. Make it embarrassing but harmless.`,[],"You generate party dares.");setDareText(cleanText(res));setLoading(false);return;}}loadStmt(n+1);};const finishGame=()=>{const fp=players.map(p=>({...p,score:String(tapCounts[p.name]||0),verdict:(tapCounts[p.name]||0)>5?'CERTIFIED MENACE':'RELATIVELY PURE'}));onFinish(fp,'NEVER HAVE I EVER');};if(showToggle){return(<main className="bg-black text-white h-screen w-screen relative overflow-hidden flex flex-col items-center justify-center" style={{cursor:'crosshair'}}><SigintOverlays/><SigintHeader onExit={onLobby}/><h1 className="michroma text-4xl sigint-glitch tracking-widest mb-8">NEVER HAVE I EVER</h1><div className="flex items-center gap-6 mb-12"><span className="michroma text-sm text-white/60 tracking-widest">DRINK MODE</span><button onClick={()=>setDrinkMode(!drinkMode)} className={`w-16 h-8 border ${drinkMode?'border-green-400 bg-green-400/20':'border-white/20'} flex items-center transition-all ${drinkMode?'justify-end':'justify-start'} px-1`}><div className={`w-6 h-6 ${drinkMode?'bg-green-400':'bg-white/40'} transition-all`}></div></button></div><button onClick={startGame} className="border border-[#C9A84C] px-12 py-4 michroma text-sm text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">START GAME</button></main>);}return(<main className="bg-black text-white h-screen w-screen relative overflow-hidden flex flex-col" style={{cursor:'crosshair'}}><SigintOverlays/><SigintHeader onExit={onLobby}/><div className="flex-1 flex flex-col items-center justify-center px-8 pt-[76px] pb-32 relative z-10">{loading&&<div className="michroma text-xl text-[#C9A84C] animate-pulse tracking-widest">LOADING...</div>}{!loading&&phase==='statement'&&(<><h1 className="michroma text-3xl sigint-glitch text-white tracking-widest mb-2 uppercase">NEVER HAVE I EVER...</h1><p className="text-2xl text-white leading-relaxed mb-12 max-w-3xl text-center">{stmt}</p><div className="flex flex-wrap gap-4 justify-center mb-8">{players.map(p=>(<button key={p.name} onClick={()=>handleTap(p.name)} className={`px-6 py-4 border-2 transition-all min-w-[120px] ${tapped.has(p.name)?'player-card-tapped border-green-400':'border-white/20 hover:border-white/40'}`}><span className={`michroma text-sm ${tapped.has(p.name)?'text-green-400':'text-white'}`}>{p.name}</span></button>))}</div><div className="flex gap-4"><button onClick={lockVotes} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">LOCK IN</button><button onClick={()=>{setStmtCount(prev=>prev+1);loadStmt(stmtCount+2);}} className="border border-white/20 px-6 py-3 michroma text-xs text-white/40 tracking-widest uppercase">SKIP</button><button onClick={finishGame} className="border border-[#FF003C]/30 px-6 py-3 michroma text-xs text-[#FF003C]/60 tracking-widest uppercase">END</button></div></>)}{!loading&&phase==='results'&&(<div className="text-center"><h2 className="michroma text-2xl sigint-glitch tracking-widest mb-8">RESULTS</h2><div className="flex flex-wrap gap-4 justify-center mb-8">{players.map(p=>(<div key={p.name} className={`px-6 py-4 border ${tapped.has(p.name)?'border-green-400 bg-green-400/10':'border-white/10'}`}><span className={`michroma text-sm ${tapped.has(p.name)?'text-green-400':'text-white/40'}`}>{p.name}</span><div className="text-[10px] mt-1">{tapped.has(p.name)?(drinkMode?'🍺 DRINKS':'HAS DONE IT'):'PURE'}</div></div>))}</div><button onClick={nextStmt} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">NEXT</button></div>)}{phase==='dare'&&(<div className="text-center max-w-2xl"><h2 className="michroma text-3xl text-[#FF003C] sigint-glitch tracking-widest mb-4">DARE ROUND</h2><p className="michroma text-xl text-[#C9A84C] mb-4">{dareTarget}</p>{!loading&&<><p className="text-lg text-white leading-relaxed mb-8">{dareText}</p><button onClick={()=>{setStmtCount(prev=>prev+1);loadStmt(stmtCount+2);}} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">CONTINUE</button></>}</div>)}</div></main>);}
+
+    function PersonalityRoastGame({players,onFinish,onLobby}){const[hsIdx,setHsIdx]=useState(0);const[displayedRoast,setDisplayedRoast]=useState('');const[loading,setLoading]=useState(true);const[phase,setPhase]=useState('roasting');const[destroyed,setDestroyed]=useState(new Set());const genRoast=async(idx)=>{setLoading(true);setDisplayedRoast('');const p=players[idx];const res=await callAI(`Your job is to write a funny, playful roast for ${p.name} who describes themselves as ${p.personality||'mysterious'}. Write 3-4 sentences that poke fun at their personality traits in a humorous way — think comedy roast dinner style, not mean-spirited. Be witty, creative, and funny. The audience is their friends who are all laughing together. Keep it fun and clever.`,[],"You are a comedian hosting a lighthearted roast show.");const cl=cleanText(res);setLoading(false);const words=cl.split(' ');for(let i=0;i<words.length;i++){await new Promise(r=>setTimeout(r,80));setDisplayedRoast(prev=>prev+(i>0?' ':'')+words[i]);}setPhase('voting');};useEffect(()=>{genRoast(0);},[]);const handleVote=(vote)=>{if(vote==='DESTROYED'){const nd=new Set(destroyed);nd.add(players[hsIdx].name);setDestroyed(nd);}if(hsIdx<players.length-1){const n=hsIdx+1;setHsIdx(n);setPhase('roasting');genRoast(n);}else{genGroupRoast();}};const genGroupRoast=async()=>{setPhase('group_roast');setLoading(true);setDisplayedRoast('');const all=players.map(p=>`${p.name} (${p.personality||'unknown'})`).join(', ');const res=await callAI(`Write a funny 2-3 sentence group roast that sums up this entire friend group: ${all}. Point out their collective chaos, contradictions, and funny group dynamics. Keep it witty and fun — these are friends laughing together.`,[],"You are a comedian wrapping up a roast show.");const cl=cleanText(res);setLoading(false);const words=cl.split(' ');for(let i=0;i<words.length;i++){await new Promise(r=>setTimeout(r,80));setDisplayedRoast(prev=>prev+(i>0?' ':'')+words[i]);}setPhase('finished');};const finishGame=()=>{const fp=players.map(p=>({...p,score:String(destroyed.has(p.name)?Math.floor(Math.random()*30)+20:Math.floor(Math.random()*30)+60),verdict:destroyed.has(p.name)?'💀 DESTROYED':'SURVIVED'}));onFinish(fp,'PERSONALITY ROAST');};return(<main className="bg-black text-white h-screen w-screen relative overflow-hidden flex flex-col items-center justify-center" style={{cursor:'crosshair'}}><SigintOverlays/><SigintHeader onExit={onLobby}/><div className="relative z-10 flex flex-col items-center justify-center px-8 max-w-3xl text-center">{phase!=='group_roast'&&phase!=='finished'&&(<><h2 className="michroma text-4xl sigint-glitch text-white tracking-widest mb-2 uppercase">{players[hsIdx]?.name}</h2><div className="michroma text-[10px] text-[#C9A84C] tracking-widest mb-8">ROAST {hsIdx+1} OF {players.length}</div></>)}{(phase==='group_roast'||phase==='finished')&&<h2 className="michroma text-3xl sigint-glitch text-[#FF003C] tracking-widest mb-8">GROUP ROAST</h2>}{loading&&<div className="michroma text-xl text-[#C9A84C] animate-pulse tracking-widest">GENERATING ROAST...</div>}{!loading&&<p className="text-xl text-white leading-relaxed mb-8">{displayedRoast}</p>}{phase==='voting'&&!loading&&(<div className="flex gap-6"><button onClick={()=>handleVote('DESTROYED')} className="border border-[#FF003C] px-8 py-4 michroma text-sm text-[#FF003C] hover:bg-[#FF003C] hover:text-black transition-all tracking-widest">💀 DESTROYED</button><button onClick={()=>handleVote('SURVIVED')} className="border border-green-400 px-8 py-4 michroma text-sm text-green-400 hover:bg-green-400 hover:text-black transition-all tracking-widest">✓ SURVIVED</button></div>)}{phase==='finished'&&!loading&&<button onClick={finishGame} className="border border-[#C9A84C] px-12 py-4 michroma text-sm text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase mt-4">VIEW LEADERBOARD</button>}</div></main>);}
+
+    function GuessPersonGame({players,onFinish,onLobby}){const[rn,setRn]=useState(1);const[clues,setClues]=useState([]);const[person,setPerson]=useState('');const[funFact,setFunFact]=useState('');const[revealed,setRevealed]=useState(0);const[phase,setPhase]=useState('loading');const[scores,setScores]=useState({});const[locked,setLocked]=useState(new Set());const[buzzer,setBuzzer]=useState(null);const[loading,setLoading]=useState(true);const totalR=10;const loadRound=async()=>{setPhase('loading');setLoading(true);setRevealed(0);setLocked(new Set());setBuzzer(null);const res=await callAI("Think of a famous person. Generate 5 clues from vague to specific. Format: PERSON: [name] CLUE_1: [very vague] CLUE_2: [vague] CLUE_3: [moderate] CLUE_4: [fairly specific] CLUE_5: [very specific] FUN_FACT: [fact]",[],"You create guessing game clues about famous people.");const pm=res.match(/PERSON:\s*(.+?)(?=CLUE_1:|$)/is);const cms=[];for(let i=1;i<=5;i++){const m=res.match(new RegExp(`CLUE_${i}:\\s*(.+?)(?=CLUE_${i+1}:|FUN_FACT:|$)`,'is'));cms.push(m?m[1].trim():`Clue ${i}`);}const fm=res.match(/FUN_FACT:\s*(.+)/is);setPerson(pm?pm[1].trim():'Unknown');setClues(cms);setFunFact(fm?fm[1].trim():'');setLoading(false);setRevealed(1);setPhase('clue_reveal');};useEffect(()=>{loadRound();},[]);const revealNext=()=>{if(revealed<5)setRevealed(prev=>prev+1);};const handleBuzz=(name)=>{if(locked.has(name)||phase!=='clue_reveal')return;setBuzzer(name);setPhase('guessing');};const handleResult=(correct)=>{if(correct){const ns={...scores};ns[buzzer]=(ns[buzzer]||0)+(6-revealed);setScores(ns);setPhase('correct');}else{const nl=new Set(locked);nl.add(buzzer);setLocked(nl);setBuzzer(null);if(nl.size>=players.length)setPhase('reveal');else setPhase('clue_reveal');}};const nextR=()=>{if(rn>=totalR){const fp=players.map(p=>({...p,score:String(scores[p.name]||0)}));onFinish(fp,'GUESS THE PERSON');}else{setRn(prev=>prev+1);loadRound();}};return(<main className="bg-black text-white h-screen w-screen relative overflow-hidden flex flex-col items-center justify-center" style={{cursor:'crosshair'}}><SigintOverlays/><SigintHeader onExit={onLobby}/><div className="relative z-10 flex flex-col items-center justify-center px-8 max-w-3xl text-center"><div className="michroma text-[10px] text-white/40 tracking-widest mb-8">ROUND {rn} / {totalR}</div>{loading&&<div className="michroma text-xl text-[#C9A84C] animate-pulse tracking-widest">GENERATING...</div>}{!loading&&(phase==='clue_reveal'||phase==='guessing')&&(<><div className="space-y-4 mb-8 w-full max-w-xl">{clues.slice(0,revealed).map((c,i)=>(<div key={i} className="border border-white/10 p-4 text-left"><span className="michroma text-[10px] text-[#C9A84C] tracking-widest">CLUE_{i+1}</span><p className="text-lg text-white mt-1">{c}</p></div>))}</div>{phase==='clue_reveal'&&revealed<5&&<button onClick={revealNext} className="border border-white/20 px-6 py-2 michroma text-xs text-white/40 hover:text-white tracking-widest mb-6">REVEAL NEXT CLUE</button>}{phase==='guessing'&&(<div className="mb-6"><p className="michroma text-sm text-[#C9A84C] tracking-widest mb-4">{buzzer} IS GUESSING...</p><div className="flex gap-4"><button onClick={()=>handleResult(true)} className="border border-green-400 px-8 py-3 michroma text-xs text-green-400 hover:bg-green-400 hover:text-black transition-all tracking-widest">CORRECT</button><button onClick={()=>handleResult(false)} className="border border-[#FF003C] px-8 py-3 michroma text-xs text-[#FF003C] hover:bg-[#FF003C] hover:text-black transition-all tracking-widest">WRONG</button></div></div>)}{phase==='clue_reveal'&&(<div className="flex flex-wrap gap-4 justify-center">{players.map(p=>(<button key={p.name} onClick={()=>handleBuzz(p.name)} disabled={locked.has(p.name)} className={`px-6 py-3 border michroma text-sm transition-all ${locked.has(p.name)?'border-white/5 text-white/10 cursor-not-allowed':'border-[#FF003C] text-[#FF003C] hover:bg-[#FF003C] hover:text-black'} tracking-widest`}>{p.name}</button>))}</div>)}</>)}{!loading&&(phase==='correct'||phase==='reveal')&&(<div className="text-center"><h2 className="michroma text-4xl sigint-glitch tracking-widest mb-4">{person}</h2>{phase==='correct'&&<p className="text-lg text-green-400 mb-4">{buzzer} GUESSED CORRECTLY! +{6-revealed} POINTS</p>}{phase==='reveal'&&<p className="text-lg text-[#FF003C] mb-4">NOBODY GUESSED IT!</p>}{funFact&&<div className="border border-[#C9A84C]/30 p-4 mb-8"><p className="text-sm text-[#C9A84C]">FUN FACT: {funFact}</p></div>}<button onClick={nextR} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">{rn>=totalR?'VIEW LEADERBOARD':'NEXT ROUND'}</button></div>)}</div></main>);}
+
+    function WhoInGroupGame({players,onFinish,onLobby}){const[rn,setRn]=useState(1);const[prompt,setPrompt]=useState('');const[votes,setVotes]=useState({});const[loading,setLoading]=useState(true);const[phase,setPhase]=useState('voting');const[cd,setCd]=useState(10);const[cdActive,setCdActive]=useState(false);const[defTimer,setDefTimer]=useState(30);const[defActive,setDefActive]=useState(false);const[totalPicks,setTotalPicks]=useState({});const[prevPrompts,setPrevPrompts]=useState([]);const totalR=15;const loadPrompt=async(r)=>{setLoading(true);setVotes({});setCd(10);setCdActive(false);const names=players.map(p=>p.name).join(', ');const res=await callAI(`Generate a "Who in this group would most likely..." prompt for round ${r} of 15. Players: ${names}. Previous: ${prevPrompts.join('; ')}. Escalate. Return ONLY the prompt text.`,[],"You generate 'Who would most likely' prompts.");setPrompt(cleanText(res));setPrevPrompts(prev=>[...prev,cleanText(res)]);setLoading(false);setPhase('voting');setCdActive(true);};useEffect(()=>{loadPrompt(1);},[]);useEffect(()=>{if(!cdActive||cd<=0){if(cdActive&&cd<=0){setCdActive(false);showResults();}return;}const t=setInterval(()=>setCd(prev=>prev-1),1000);return()=>clearInterval(t);},[cdActive,cd]);useEffect(()=>{if(!defActive||defTimer<=0){if(defActive&&defTimer<=0)setDefActive(false);return;}const t=setInterval(()=>setDefTimer(prev=>prev-1),1000);return()=>clearInterval(t);},[defActive,defTimer]);const handleVote=(vi,tn)=>{setVotes(prev=>({...prev,[players[vi].name]:tn}));};const showResults=()=>{const np={...totalPicks};Object.values(votes).forEach(n=>{np[n]=(np[n]||0)+1;});setTotalPicks(np);setPhase('results');};const startDef=()=>{setDefTimer(30);setDefActive(true);setPhase('defense');};const nextR=()=>{if(rn>=totalR){const fp=players.map(p=>({...p,score:String(totalPicks[p.name]||0)}));onFinish(fp,'WHO IN YOUR FRIEND GROUP');}else{setRn(prev=>prev+1);loadPrompt(rn+1);}};const curTally={};Object.values(votes).forEach(n=>{curTally[n]=(curTally[n]||0)+1;});const totV=Object.values(votes).length;const mostV=Object.entries(curTally).sort((a,b)=>b[1]-a[1])[0];return(<main className="bg-black text-white h-screen w-screen relative overflow-hidden flex flex-col items-center justify-center" style={{cursor:'crosshair'}}><SigintOverlays/><SigintHeader onExit={onLobby}/><div className="relative z-10 flex flex-col items-center justify-center px-8 max-w-4xl text-center w-full"><div className="michroma text-[10px] text-white/40 tracking-widest mb-4">ROUND {rn} / {totalR}</div>{loading&&<div className="michroma text-xl text-[#C9A84C] animate-pulse tracking-widest">GENERATING...</div>}{!loading&&(<><h1 className="michroma text-2xl sigint-glitch text-white tracking-wide mb-2 uppercase leading-relaxed">WHO IN THIS GROUP WOULD MOST LIKELY...</h1><p className="text-xl text-[#C9A84C] leading-relaxed mb-8">{prompt}</p>{phase==='voting'&&(<><div className="michroma text-4xl text-[#FF003C] sigint-glitch-red mb-6">{cd}</div><div className="flex flex-wrap gap-4 justify-center mb-4">{players.map((p,pi)=>(<button key={p.name} onClick={()=>handleVote(pi,p.name)} className="px-6 py-4 border-2 border-white/20 hover:border-white/40 transition-all min-w-[120px]"><span className="michroma text-sm text-white">{p.name}</span></button>))}</div><button onClick={()=>{setCdActive(false);showResults();}} className="border border-[#C9A84C] px-6 py-2 michroma text-xs text-[#C9A84C] tracking-widest hover:bg-[#C9A84C] hover:text-black transition-all">LOCK VOTES</button></>)}{phase==='results'&&(<div className="w-full max-w-xl"><div className="space-y-3 mb-8">{players.map(p=>{const cnt=curTally[p.name]||0;const pct=totV?Math.round((cnt/totV)*100):0;return(<div key={p.name} className="flex items-center gap-4"><span className="michroma text-xs text-white w-32 text-right">{p.name}</span><div className="flex-1 h-8 bg-white/5 relative overflow-hidden"><div className="h-full bg-[#C9A84C]/30 transition-all duration-1000" style={{width:`${pct}%`}}></div><span className="absolute right-2 top-1/2 -translate-y-1/2 michroma text-xs text-white">{pct}%</span></div></div>);})}</div>{mostV&&<p className="michroma text-lg text-[#C9A84C] tracking-widest mb-6">{mostV[0]} WAS CHOSEN</p>}<button onClick={startDef} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest">DEFENSE TIME</button></div>)}{phase==='defense'&&(<div className="text-center"><h3 className="michroma text-3xl text-[#C9A84C] sigint-glitch mb-4">{mostV?.[0]} — DEFEND YOURSELF</h3><div className="michroma text-6xl text-[#FF003C] sigint-glitch-red mb-8">{defTimer}</div><button onClick={nextR} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest uppercase">{rn>=totalR?'VIEW LEADERBOARD':'NEXT ROUND'}</button></div>)}</>)}</div></main>);}
+
+    function RealityShowGame({players,gameOptions,onFinish,onLobby}){const[curEp,setCurEp]=useState(1);const[displayedContent,setDisplayedContent]=useState('');const[loading,setLoading]=useState(true);const[input,setInput]=useState('');const[phase,setPhase]=useState('episode');const[recap,setRecap]=useState('');const[castStatuses,setCastStatuses]=useState({});const[history,setHistory]=useState([]);const totalEp=gameOptions?.episodes||5;const theme=gameOptions?.theme||'SINGLES_INFERNO';const contentRef=useRef(null);const themePrompts={SINGLES_INFERNO:"You are the writer of a Korean-style dating reality show. The cast members are [CAST]. Write Episode [EP] of [TOTAL]. Include: opening scene, a group activity, a private conversation, a dramatic moment, confessionals, and a cliffhanger. Be dramatic and romantic.",SCI_FI_DARK:"You are writing a dark science fiction serial. Characters: [CAST]. Write Episode [EP] of [TOTAL]. Include: an inciting event, a moral dilemma, tension between characters, a disturbing discovery, and an ending raising questions.",MYSTERY_MURDER:"You are writing a Victorian mystery in Doyle's style. Characters: [CAST]. Write Episode [EP] of [TOTAL]. Include: Baker Street scene, new clue, Holmes' deduction, a red herring, revealing dialogue, and Holmes knowing more than he shares.",SURVIVAL:"You are narrating a Survivor-style competition. Castaways: [CAST]. Write Episode [EP] of [TOTAL]. Include: tribe dynamics, reward challenge, immunity challenge, scheming, tribal council with votes, and one player eliminated."};const genEp=async(ep)=>{setLoading(true);setDisplayedContent('');const castStr=players.map(p=>`${p.name} (${p.personality||'unknown'})`).join(', ');let prompt=(themePrompts[theme]||themePrompts.SINGLES_INFERNO).replace('[CAST]',castStr).replace('[EP]',ep).replace('[TOTAL]',totalEp);if(history.length>0)prompt+='\n\nPrevious context: '+history.map(h=>h.content.substring(0,200)).join(' ... ');const res=await callAI(prompt,[],"You are a masterful TV show writer.");const cl=cleanText(res);setHistory(prev=>[...prev,{role:'assistant',content:cl}]);const ns={...castStatuses};players.forEach(p=>{if(cl.toLowerCase().includes('eliminat')&&cl.toLowerCase().includes(p.name.toLowerCase()))ns[p.name]='ELIMINATED';else if(!ns[p.name])ns[p.name]='ACTIVE';});setCastStatuses(ns);setLoading(false);const words=cl.split(' ');for(let i=0;i<words.length;i++){await new Promise(r=>setTimeout(r,40));setDisplayedContent(prev=>prev+(i>0?' ':'')+words[i]);}};useEffect(()=>{genEp(1);},[]);useEffect(()=>{if(contentRef.current)contentRef.current.scrollTop=contentRef.current.scrollHeight;},[displayedContent]);const handleIntervention=async(e)=>{if(e.key!=='Enter'||!input.trim()||loading)return;const int=input.trim();setInput('');setLoading(true);const res=await callAI(`Viewer intervenes: "${int}". Continue incorporating this.`,history,"You are a TV show writer incorporating feedback.");const cl=cleanText(res);setHistory(prev=>[...prev,{role:'user',content:int},{role:'assistant',content:cl}]);setLoading(false);const words=cl.split(' ');for(let i=0;i<words.length;i++){await new Promise(r=>setTimeout(r,40));setDisplayedContent(prev=>prev+' '+words[i]);}};const nextEp=async()=>{if(curEp>=totalEp){const fp=players.map(p=>({...p,score:String(castStatuses[p.name]==='ELIMINATED'?30:Math.floor(Math.random()*40)+60),verdict:castStatuses[p.name]||'ACTIVE'}));onFinish(fp,'REALITY SHOW GENERATOR');return;}setPhase('recap');setLoading(true);const rr=await callAI("Generate a 'PREVIOUSLY ON...' recap in 3 bullet points.",history,"You write TV show recaps.");setRecap(cleanText(rr));setLoading(false);};const startNextEp=()=>{const n=curEp+1;setCurEp(n);setPhase('episode');genEp(n);};const getStatusColor=(s)=>s==='ELIMINATED'?'text-red-500':s==='MISSING'?'text-yellow-500':'text-green-400';return(<main className="bg-black text-on-surface uppercase overflow-hidden h-screen w-screen relative" style={{cursor:'crosshair'}}><SigintOverlays/><SigintHeader onExit={onLobby}/><aside className="fixed left-0 top-[52px] h-full w-[180px] border-r border-white/10 bg-black/95 flex flex-col z-30 pt-4"><div className="px-4 mb-8"><div className="michroma text-[10px] tracking-widest text-neutral-500 mb-4 border-b border-white/10 pb-1">CAST_STATUS</div><ul className="space-y-4">{players.map((c,i)=>{const st=castStatuses[c.name]||'ACTIVE';return(<li key={i} className={st==='ELIMINATED'?'opacity-50 grayscale':''}><div className="flex items-center gap-2 mb-1"><span className={`material-symbols-outlined text-[10px] ${getStatusColor(st)}`}>{st==='ELIMINATED'?'cancel':'radio_button_checked'}</span><span className={`michroma text-[10px] tracking-wider ${st==='ELIMINATED'?'text-neutral-400 line-through':'text-white'}`}>{c.name}</span></div><div className={`text-[9px] font-bold pl-4 ${getStatusColor(st)}`}>STATUS: {st}</div></li>);})}</ul></div></aside><div className="ml-[180px] pt-[52px] h-screen flex flex-col relative"><div className="p-8 pb-0"><div className="flex justify-between items-end"><div><h1 className="michroma text-3xl sigint-glitch text-white tracking-widest">{theme.replace(/_/g,' ')}</h1><div className="text-[10px] michroma text-secondary mt-2 tracking-[0.5em]">EPISODE_{String(curEp).padStart(2,'0')} // {totalEp} TOTAL</div></div><div className="flex items-center gap-2"><div className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></div><span className="michroma text-[10px] text-red-600 tracking-widest">LIVE_FEED</span></div></div></div>{phase==='recap'&&(<div className="flex-grow flex items-center justify-center p-12"><div className="text-center max-w-2xl"><h2 className="michroma text-3xl sigint-glitch tracking-widest mb-8">PREVIOUSLY ON...</h2>{loading?<div className="michroma text-xl text-[#C9A84C] animate-pulse">GENERATING RECAP...</div>:<><p className="text-lg text-white/80 leading-relaxed mb-8 normal-case">{recap}</p><button onClick={startNextEp} className="border border-[#C9A84C] px-8 py-3 michroma text-xs text-[#C9A84C] hover:bg-[#C9A84C] hover:text-black transition-all tracking-widest">START EPISODE {curEp+1}</button></>}</div></div>)}{phase==='episode'&&(<><div ref={contentRef} className="flex-grow p-8 overflow-y-auto sigint-scroll relative"><div className="max-w-4xl">{loading&&!displayedContent&&<div className="text-center py-12"><div className="michroma text-xl text-[#C9A84C] animate-pulse tracking-widest">GENERATING EPISODE...</div></div>}<p className="text-lg text-white leading-relaxed tracking-wide normal-case whitespace-pre-wrap">{displayedContent}{loading&&<span className="inline-block w-2 h-4 bg-white/50 ml-1 cursor-blink"></span>}</p></div></div><div className="h-20 border-t border-white/20 bg-black/80 px-8 flex items-center gap-6 z-30"><div className="flex-grow flex items-center gap-4 sigint-ghost-border px-4 py-3 bg-white/5"><span className="michroma text-secondary text-xs">SYS_LOG:</span><input className="flex-grow bg-transparent border-none focus:ring-0 text-white text-sm tracking-wide placeholder:text-white/20 outline-none uppercase" placeholder="INTERVENE IN THE STORY..." value={input} onChange={e=>setInput(e.target.value)} onKeyDown={handleIntervention}/></div>{!loading&&displayedContent.length>100&&<button onClick={nextEp} className="px-10 h-12 bg-secondary text-black michroma text-xs font-bold tracking-[0.2em] flex items-center gap-2 hover:bg-white transition-all">{curEp>=totalEp?'FINISH':'NEXT_EPISODE'}</button>}</div></>)}</div></main>);}
+
+    /* ═══════════════════════════════════════════════════════
+       LEADERBOARD (README2.md design)
+    ═══════════════════════════════════════════════════════ */
+    function Leaderboard({ rankedPlayers, gameName, onPlayAgain, onMainMenu }) {
+      const ranked = [...rankedPlayers].sort((a, b) => (parseInt(b.score)||0) - (parseInt(a.score)||0));
+      return (
+        <main className="bg-black text-white select-none h-screen w-screen relative overflow-hidden" style={{cursor:'crosshair'}}>
+          <SigintOverlays/>
+          <div className="fixed top-6 left-6 w-12 h-12 border-t border-l border-white/40 z-30 pointer-events-none"></div>
+          <div className="fixed top-6 right-6 w-12 h-12 border-t border-r border-white/40 z-30 pointer-events-none text-right"><span className="text-[10px] tracking-widest text-white/50">SYS_AUTH: ACTIVE</span></div>
+          <div className="fixed bottom-6 left-6 w-12 h-12 border-b border-l border-white/40 z-30 pointer-events-none"></div>
+          <div className="fixed bottom-6 right-6 w-12 h-12 border-b border-r border-white/40 z-30 pointer-events-none"></div>
+          <div className="relative z-10 h-screen w-full flex flex-col items-center justify-center px-24">
+            <div className="mb-12 text-center">
+              <h1 className="michroma text-[5rem] tracking-[0.2em] sigint-glitch text-white leading-none uppercase">SESSION_COMPLETE</h1>
+              <div className="mt-4 flex items-center justify-center gap-8"><div className="h-[1px] w-32 bg-white/20"></div><span className="text-[12px] tracking-[0.5em] text-white/50 uppercase">{gameName} // Final Rankings</span><div className="h-[1px] w-32 bg-white/20"></div></div>
+            </div>
+            <div className="w-full max-w-5xl flex flex-col gap-y-2">
+              <div className="grid grid-cols-12 px-6 py-2 text-[10px] tracking-[0.3em] text-white/40 uppercase font-bold border-b border-white/10 mb-4"><div className="col-span-1">Rank</div><div className="col-span-5">Operator_ID</div><div className="col-span-3 text-right">Score</div><div className="col-span-3 text-right">Verdict</div></div>
+              {ranked.map((player, i) => (
+                <div key={i} className={`grid grid-cols-12 items-center px-6 py-4 ${i === 0 ? 'bg-white/10 border-l-2 border-[#C9A84C]' : 'border-l border-white/10 hover:bg-white/5 transition-colors'}`}>
+                  <div className={`col-span-1 michroma text-[#C9A84C] ${i===0?'text-xl':'text-lg'}`}>{String(i+1).padStart(2,'0')}</div>
+                  <div className={`col-span-5 michroma ${i===0?'text-white text-lg':'text-white/90'} tracking-wider`}>{player.name}</div>
+                  <div className={`col-span-3 text-right ${i===0?'text-white text-xl':'text-white/80 text-lg'} tracking-widest`}>{player.score}</div>
+                  <div className="col-span-3 text-right"><span className={`text-[10px] ${i===0?'text-[#C9A84C] border border-[#C9A84C]/40':'text-white/40 border border-white/20'} px-2 py-0.5 tracking-tighter font-bold uppercase`}>{player.verdict||(i===0?'ELITE_CLEARANCE':'AUTHORIZED')}</span></div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-20 flex gap-12">
+              <button onClick={onPlayAgain} className="px-12 py-3 border border-[#C9A84C] bg-transparent text-[#C9A84C] michroma text-xs tracking-[0.3em] uppercase hover:bg-[#C9A84C] hover:text-black transition-all duration-300">[ PLAY AGAIN ]</button>
+              <button onClick={onMainMenu} className="px-12 py-3 border border-white/20 bg-transparent text-white/60 michroma text-xs tracking-[0.3em] uppercase hover:border-white hover:text-white transition-all duration-300">[ MAIN MENU ]</button>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       APP — Routing & State
+    ═══════════════════════════════════════════════════════ */
+    function App() {
+      const [currentScreen, setCurrentScreen] = useState('hero'); 
+      const [flash, setFlash] = useState(false);
+      const [currentGameId, setCurrentGameId] = useState(null);
+      const [playerName, setPlayerName] = useState("");
+      const [conversationHistory, setConversationHistory] = useState([]);
+      const [roundNumber, setRoundNumber] = useState(1);
+      const [verdictData, setVerdictData] = useState({ verdict: "", score: "0", summary: "" });
+      const [gameMode, setGameMode] = useState(null);
+      const [players, setPlayers] = useState([]);
+      const [gameOptions, setGameOptions] = useState({});
+      const [leaderboardData, setLeaderboardData] = useState({ players: [], gameName: '' });
+      
+      const triggerTransition = (nextScreen) => {
+        setFlash(true);
+        setTimeout(() => { setCurrentScreen(nextScreen); setTimeout(() => setFlash(false), 200); }, 200);
+      };
+
+      // FIX 1 — handleLobby: no triggerTransition, just reset
+      const handleLobby = () => {
+        setCurrentGameId(null);
+        setPlayerName('');
+        setGameMode(null);
+        setConversationHistory([]);
+        setRoundNumber(1);
+        setVerdictData({ verdict: "", score: "0", summary: "" });
+        setPlayers([]);
+        setCurrentScreen('select');
+      };
+
+      const handleGameSelect = (gameId, mode) => {
+        setCurrentGameId(gameId);
+        setGameMode(mode);
+        setConversationHistory([]);
+        setRoundNumber(1);
+        setPlayers([]);
+        triggerTransition('playerSetup');
+      };
+
+      const handlePlayersReady = (playerList, options) => {
+        setPlayers(playerList);
+        setPlayerName(playerList[0]?.name || '');
+        setGameOptions(options || {});
+        setConversationHistory([]);
+        setRoundNumber(1);
+        const screens = { 1:'game_wyr', 2:'game_roast', 3:'game_truths', 4:'game_chaos', 5:'game_purity', 6:'game_nhie', 7:'game_personality', 8:'game_guess', 9:'game_who', 10:'game_reality' };
+        triggerTransition(screens[currentGameId] || 'game_wyr');
+      };
+
+      const handleGameFinish = (finalPlayers, gameName) => {
+        setLeaderboardData({ players: finalPlayers, gameName: gameName });
+        setPlayers(finalPlayers);
+        triggerTransition('leaderboard');
+      };
+
+      // For original gameplay/results flow (fallback)
+      const handleOldFinish = (verdict, score, summary) => {
+        const gm = GAMES.find(g => g.id === currentGameId);
+        setVerdictData({ verdict, score, summary, gameName: gm?.title || '', playerName });
+        triggerTransition('results');
+      };
+
+      const handlePlayAgain = () => {
+        setConversationHistory([]); setRoundNumber(1);
+        setVerdictData({ verdict: "", score: "0", summary: "" });
+        triggerTransition('playerSetup');
+      };
+
+      const handleMainMenu = () => {
+        setCurrentGameId(null); setPlayerName(''); setGameMode(null);
+        setPlayers([]); setConversationHistory([]); setRoundNumber(1);
+        triggerTransition('select');
+      };
+
+      const cursorRef = useRef(null);
+
+      useEffect(() => {
+        const handleMouseMove = (e) => {
+           if(cursorRef.current) {
+              cursorRef.current.style.left = e.clientX + 'px';
+              cursorRef.current.style.top = e.clientY + 'px';
+           }
+        };
+        const handleMouseOver = (e) => {
+           const isInteractive = e.target.closest('button, a, .group, .game-row');
+           if(isInteractive && cursorRef.current) {
+              cursorRef.current.style.transform = 'scale(4)';
+              cursorRef.current.style.backgroundColor = 'transparent';
+              cursorRef.current.style.border = '1px solid #c1fffe';
+              cursorRef.current.style.boxShadow = 'none';
+           } else if(cursorRef.current) {
+              cursorRef.current.style.transform = 'scale(1)';
+              cursorRef.current.style.backgroundColor = '#00fd00';
+              cursorRef.current.style.border = 'none';
+              cursorRef.current.style.boxShadow = '0 0 15px #00fd00';
+           }
+        };
+
+        const sigintScreens = ['playerSetup', 'leaderboard', 'game_wyr', 'game_roast', 'game_truths', 'game_chaos', 'game_purity', 'game_nhie', 'game_personality', 'game_guess', 'game_who', 'game_reality'];
+        if (sigintScreens.includes(currentScreen)) {
+           document.body.style.cursor = 'crosshair';
+        } else if (currentScreen === 'results') {
+           document.body.style.cursor = 'crosshair';
+        } else {
+           document.body.style.cursor = 'none';
+           document.addEventListener('mousemove', handleMouseMove);
+           document.addEventListener('mouseover', handleMouseOver);
+        }
+
+        return () => {
+          document.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseover', handleMouseOver);
+        };
+      }, [currentScreen]);
+
+      const sigintScreens = ['playerSetup', 'leaderboard', 'results', 'game_wyr', 'game_roast', 'game_truths', 'game_chaos', 'game_purity', 'game_nhie', 'game_personality', 'game_guess', 'game_who', 'game_reality'];
+      const showCustomCursor = !sigintScreens.includes(currentScreen);
+
+      return (
+        <div className="relative w-full h-full text-on-background">
+          <div className="grain-overlay"></div>
+          {showCustomCursor && <div className="custom-cursor" ref={cursorRef}></div>}
+          
+          {flash && (<div className="fixed inset-0 z-[99999] pointer-events-none animate-flash"></div>)}
+
+          {currentScreen === 'hero' && <Hero onStart={() => triggerTransition('select')} />}
+          {currentScreen === 'select' && <GameSelect onSelectGame={handleGameSelect} />}
+          {currentScreen === 'playerSetup' && <PlayerSetup gameId={currentGameId} gameMode={gameMode} onStart={handlePlayersReady} onBack={() => triggerTransition('select')} />}
+          
+          {currentScreen === 'game_wyr' && <WouldYouRatherGame players={players} onFinish={handleGameFinish} onLobby={handleLobby} />}
+          {currentScreen === 'game_roast' && <RoastBattleGame players={players} onFinish={handleGameFinish} onLobby={handleLobby} />}
+          {currentScreen === 'game_truths' && <TwoTruthsGame players={players} gameMode={gameMode} onFinish={handleGameFinish} onLobby={handleLobby} />}
+          {currentScreen === 'game_chaos' && <ChaosStoryGame players={players} onFinish={handleGameFinish} onLobby={handleLobby} />}
+          {currentScreen === 'game_purity' && <PurityScoreGame players={players} onFinish={handleGameFinish} onLobby={handleLobby} />}
+          {currentScreen === 'game_nhie' && <NeverHaveIEverGame players={players} onFinish={handleGameFinish} onLobby={handleLobby} />}
+          {currentScreen === 'game_personality' && <PersonalityRoastGame players={players} onFinish={handleGameFinish} onLobby={handleLobby} />}
+          {currentScreen === 'game_guess' && <GuessPersonGame players={players} onFinish={handleGameFinish} onLobby={handleLobby} />}
+          {currentScreen === 'game_who' && <WhoInGroupGame players={players} onFinish={handleGameFinish} onLobby={handleLobby} />}
+          {currentScreen === 'game_reality' && <RealityShowGame players={players} gameOptions={gameOptions} onFinish={handleGameFinish} onLobby={handleLobby} />}
+          
+          {currentScreen === 'leaderboard' && <Leaderboard rankedPlayers={leaderboardData.players} gameName={leaderboardData.gameName} onPlayAgain={handlePlayAgain} onMainMenu={handleMainMenu} />}
+          {currentScreen === 'results' && <Results verdictData={verdictData} onLobby={handleLobby} onPlayAgain={handlePlayAgain} />}
+        </div>
+      );
+    }
+    
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

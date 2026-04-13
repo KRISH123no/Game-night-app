@@ -1,0 +1,30 @@
+{
+  "name": "game-night-ai",
+  "version": "1.0.0",
+  "description": "Game Night AI - Party Game App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder build --mac"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.gamenightai.app",
+    "productName": "Game Night AI",
+    "mac": {
+      "category": "public.app-category.games",
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js"
+    ]
+  }
+}
